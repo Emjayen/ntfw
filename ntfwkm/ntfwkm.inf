@@ -50,7 +50,7 @@ Characteristics=0x40000
 ; This must be a random, unique value.
 ; FILTER_UNIQUE_NAME in filter.h must match this GUID identically.
 ; Both should have {curly braces}.
-NetCfgInstanceId="{528ed75f-b63d-4a97-aba7-0a85a6707ce5}"
+NetCfgInstanceId="{C6A91426-8E41-4E9C-9A1A-D0898FFE0EB9}"
 
 Copyfiles = ntfwkm.copyfiles.sys
 
@@ -101,7 +101,7 @@ HKR, Ndi\Interfaces, FilterMediaTypes,,"ethernet, wan, ppip"
 ;     HKR, Ndi,FilterRunType,0x00010001, 1 ; Mandatory filter
 ; For an Optional filter, use this:
 ;     HKR, Ndi,FilterRunType,0x00010001, 2 ; Optional filter
-HKR, Ndi,FilterRunType,0x00010001, 1 ; Mandatory filter
+HKR, Ndi,FilterRunType,0x00010001, 2 ; Mandatory filter
 
 ;-------------------------------------------------------------------------
 ; Service installation support
