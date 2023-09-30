@@ -18,7 +18,7 @@ The latter two points are only relevant to the traffic-policing feature.
 
 ### Overview
 
-ntfw classifies all network traffic arriving at your machine as either *public* or *private*. *Public* traffic is that which relates
+ntfw classifies all network traffic arriving at your machine as either *public* or *private*. *Public* traffic is that which is destined
 to the internet-facing services your server hosts such as web- and game servers, while *private* is simply defined as the inverse and
 constitutes your internal administration systems.
 
