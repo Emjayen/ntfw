@@ -4,7 +4,8 @@ ntfw is a light-weight, fixed-function L3 'firewall' for server deployments of W
 - Host-based authorization to private services with support for remote configuration.
 - Traffic policing to help protect public services from volumetric abuse.
 
-tl;dr: IP whitelisting (with accomodation for dynamic addresses) for e.g, RDP access, and rate-limiting of incoming packets.
+tl;dr: IP whitelisting (with accomodation for dynamic addresses) for access to e.g, RDP access and rate-limiting of incoming
+packets based on source IP address.
 
 <br>
 
