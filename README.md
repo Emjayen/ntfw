@@ -29,11 +29,16 @@ Private traffic is subject to host-based authorization
 ### Notes
 
 - Rules are compiled down into a perfect (but not minimal-) hash-table, providing deterministic O(1) lookup per-packet, and thus performance
-  is not dependent on the number of rules defined.
+  is not dependent on the number of rules defined.[^1]
 
 - The KMD (ntfwkm) inserts itself as reasonably low as possible within the filter chain with the expectation it will be near-first to touch
   frames in the data-path after they're DMA'd to the NIC rx ring. This is important as to avoid the relatively costly path up through the kernel as
   configured for most machines.
 
 - ntfw engages *before* Windows Firewall and, currently, before Wireshark/npcap (see above)
-- 
+  
+- In the presence of a high ingress packet-rate (~10Mpps), it's recommended to configure the RSS hash type of your NIC to be over the IPv4 source address
+  alone. This will, in the current implementation atleast, improve performance by virtue of reducing the amount of contention over some cache-lines.
+
+
+[^1]: It's assumed only a handful of public ports are accessible/rules defined and thus spilling over no more than a few lines.
