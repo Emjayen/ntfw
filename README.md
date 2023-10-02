@@ -4,8 +4,6 @@ ntfw is a light-weight, fixed-function L3 'firewall' for server deployments of W
 - Host-based authorization to private services with support for remote configuration.
 - Traffic policing to help protect public services from volumetric abuse.
 
-tl;dr: IP whitelisting (with accomodation for dynamic addresses) for access to e.g, RDP and rate-limiting of incoming packets
-hitting your e.g, game-server
 
 <br>
 
@@ -21,11 +19,11 @@ The latter two points are only relevant to the traffic-policing feature.
 
 ### Overview
 
-ntfw classifies all network traffic arriving at your machine as either *public* or *private*. *Public* traffic is that which is destined
-to the internet-facing services your server hosts such as web- and game servers, while *private* is simply defined as the inverse and
-constitutes your internal administration systems.
+ntfw classifies all network traffic arriving at your machine as either public or private. *Public* traffic is that which is destined
+to internet-facing services you provide such as web- and game servers, while *private* is implicitly defined as the inverse and
+is assumed to constitute your internal systems (e.g, RDP)
 
-Private traffic is subject to host-based authorization 
+Private traffic is subject to host-based authorization while public traffic is optionally subject to traffic policing.
 
 
 
@@ -47,8 +45,7 @@ icmp
 
 ### Notes
 
-- Rules are compiled down into a perfect (but not minimal-) hash-table, providing deterministic O(1) lookup per-packet, and thus performance
-  is not dependent on the number of rules defined.[^1]
+- Rules are compiled into a perfect hash-table, providing deterministic O(1) lookup per-packet, and thus performance is not dependent on the number of rules defined.
 
 - The KMD (ntfwkm) inserts itself as low as is reasonably possible within the network data-path with the expectation it will be near-first to touch
   frames after they're DMA'd to the NIC rx ring. This is important as to avoid the relatively costly path up through the kernel as
