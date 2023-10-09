@@ -29,52 +29,6 @@ Private traffic is subject to host-based authorization while public traffic is o
 
 <br>
 
-### Configuration
-
-```
-;
-; The 'general' section defines general configuration.
-;
-[General]
-
-
-[Meter#1]
-Peak=1000
-Rate=1
-
-
-;
-; The 'rules' section defines public traffic. Following illustrates the basic syntax.
-;
-[Rules]
-tcp/80
-    @Meter1
-       byte  _cost=1000
-       packet_cost=10
-
-    @Meter2
-       syn_cost=1
-
-arp
-udp/444
-icmp
-
-;
-; The 'static' section lists any statically authorized hosts.
-;
-[Static]
-192.168.1.1
-11.22.33.44
-
-;
-; The 'users' section defines authorized users, identified solely by their public key.
-;
-[Users]
-A262FB0B70DED5DF7F4ABE62C181AF989E7161B1A76470D0B3E72049A625A3E2
-B70A20610957DF7E72B6CF471FAD650AFDDCBCD4B486CE0CAE3E39F28106CB4C
-
-```
-
 <br>
 
 ### Notes
