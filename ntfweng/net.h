@@ -57,6 +57,8 @@ struct eth_hdr
 // IP protocol identifiers
 #define IP_P_ICMP 0x01
 #define IP_P_UDP  0x11
+#define IP_P_TCP  0x06
+#define IP_P_LDP  0x88
 
 struct ip_hdr
 {

@@ -5,14 +5,17 @@
 #include <ndis.h>
 #include "driver.h"
 #include "config.h"
+#include "ntfweng/ntfweng.h"
+#include "ntfweng/eal.h"
+
 
 #pragma warning(disable:4706) // Assignment within conditional
 
-UINT8 ipxs(char* pd, UINT sz, UINT ip4);
-// kdnet key: OTEZ1DWUHDTC.KYXZ014NPQLL.EU55ND8LPQ21.77Y47FBYRSW4
+
+ // kdnet key: OTEZ1DWUHDTC.KYXZ014NPQLL.EU55ND8LPQ21.77Y47FBYRSW4
 
 
-// Filter states
+ // Filter states
 enum FILTER_STATE
 {
 	FilterStateUndefined,
@@ -72,7 +75,7 @@ VOID SetModuleState(FLT_MODULE* Module, FILTER_STATE NewState)
 		"FilterStateDetached"
 	};
 
-	LOG(LINFO, "[%zu] %s -> %s", (Module - FltModules), STATE[Module->State], STATE[NewState]);
+	LOG("[%zu] %s -> %s", (Module - FltModules), STATE[Module->State], STATE[NewState]);
 
 	Module->State = NewState;
 }
@@ -102,25 +105,26 @@ NDIS_STATUS FilterAttach
 
 		else if(++i == ARRAYSIZE(SupportedNdisMedia))
 		{
-			LOG(LWARN, "Unable to attach; unsupported media.");
+			LWARN("Unable to attach; unsupported media.");
 			Status = NDIS_STATUS_FAILURE;
 			goto done;
-		} 
+		}
 	}
 
-	LOG(LINFO, "Attaching to %S; BaseMiniportIfIndex:%u IfIndex:%u LowerIfIndex:%u", AttachParameters->BaseMiniportName->Buffer, AttachParameters->BaseMiniportIfIndex, AttachParameters->IfIndex, AttachParameters->LowerIfIndex);
+
+	LOG("Attaching to %S; BaseMiniportIfIndex:%u IfIndex:%u LowerIfIndex:%u", AttachParameters->BaseMiniportName->Buffer, AttachParameters->BaseMiniportIfIndex, AttachParameters->IfIndex, AttachParameters->LowerIfIndex);
 
 	// Allocate filter context state/module.
 	if(!(FilterModule = (FLT_MODULE*) ExInterlockedPopEntrySList(&FltModuleFreeList, &DriverLock)))
 	{
-		LOG(LERR, "Unable to attach; filter allocation failed.");
+		LERR("Unable to attach; filter allocation failed.");
 		Status = NDIS_STATUS_FAILURE;
 		goto done;
 	}
 
 	FilterModule = CONTAINING_RECORD(FilterModule, FLT_MODULE, Next);
 	FilterModule->FilterModuleHandle = NdisFilterHandle;
-	
+
 	SetModuleState(FilterModule, FilterStateAttached);
 
 	NdisZeroMemory(&FilterAttr, sizeof(FilterAttr));
@@ -133,7 +137,8 @@ NDIS_STATUS FilterAttach
 
 	if((Status = NdisFSetAttributes(NdisFilterHandle, (NDIS_HANDLE) FilterModule, &FilterAttr)) != NDIS_STATUS_SUCCESS)
 	{
-		LOG(LWARN, "Failed to set filter attributes.");
+		LERR("Failed to set filter attributes.");
+		Status = NDIS_STATUS_FAILURE;
 		goto done;
 	}
 
@@ -180,7 +185,7 @@ NDIS_STATUS FilterRestart
 	UNREFERENCED_PARAMETER(RestartParameters);
 
 	FLT_MODULE* Context = (FLT_MODULE*) FilterModuleContext;
-	
+
 	SetModuleState(Context, FilterStateRestarting);
 	SetModuleState(Context, FilterStateRunning);
 
@@ -198,40 +203,79 @@ VOID FilterReceive
 )
 {
 	FLT_MODULE* Context = (FLT_MODULE*) FilterModuleContext;
+	PNET_BUFFER_LIST NblDropHead = NULL;
+	PNET_BUFFER_LIST NblDropTail = (PNET_BUFFER_LIST) &NblDropHead;
+	PNET_BUFFER_LIST NblAcceptHead = NULL;
+	PNET_BUFFER_LIST NblAcceptTail = (PNET_BUFFER_LIST) &NblAcceptHead;
+	KIRQL PrevIrql;
+	ULONG AcceptCount = 0;
+	XSTATE_SAVE SaveState;
+	UCHAR FrameData[64];
 
-	UCHAR Frame[64];
-	UCHAR* Header;
 
-	for(NET_BUFFER_LIST* nbl = NetBufferLists; nbl; nbl = nbl->Next)
+
+	// We aren't handling this case for now; if the lower-edge is starved of resources, then terminate
+	// the data-path here releasing resources back.
+	if(ReceiveFlags & NDIS_RECEIVE_FLAGS_RESOURCES)
+	{
+		return;
+	}
+
+	// Indicate to ntfw that we're about to begin a batch.
+	ntfe_rx_prepare();
+
+	// Store AVX state.
+	if(KeSaveExtendedProcessorState(XSTATE_MASK_GSSE, &SaveState) != STATUS_SUCCESS)
+	{
+		// This shouldn't happen. Just transparently pass through to the next layer.
+		NdisFIndicateReceiveNetBufferLists(Context->FilterModuleHandle, NetBufferLists, PortNumber, NumberOfNetBufferLists, ReceiveFlags);
+		return;
+	}
+
+	// We must always be running at dispatch to prevent migration and/or preemption in the engine.
+	if(!(ReceiveFlags & NDIS_RECEIVE_FLAGS_DISPATCH_LEVEL))
+		PrevIrql = KeRaiseIrqlToDpcLevel();
+
+	// Process each packet in the batch, segregating them into two seperate lists depending
+	// on their fate (accept or drop)
+	for(PNET_BUFFER_LIST nbl = NetBufferLists, Next; nbl; nbl = Next)
 	{
 		auto FrameLength = nbl->FirstNetBuffer->DataLength;
+		auto HeaderPtr = NdisGetDataBuffer(nbl->FirstNetBuffer, min(FrameLength, sizeof(FrameData)), FrameData, 1, 1);
 
-		if(!(Header = (UCHAR*) NdisGetDataBuffer(nbl->FirstNetBuffer, min(FrameLength, sizeof(Frame)), Frame, 1, 1)))
+		if(!HeaderPtr || ntfe_rx(HeaderPtr, (u16) FrameLength))
 		{
-			LOG(LDBG, "Failed to get NDIS data buffer");
+			NblAcceptTail->Next = nbl;
+			NblAcceptTail = nbl;
+			AcceptCount++;
 		}
 
 		else
 		{
-			USHORT EtherType = *(USHORT*) (Header+12);
-
-			if(EtherType != _byteswap_ushort(0x0800))
-				LOG(LDBG, "Ignoring non-IP frame (0x%X)", EtherType);
-
-			else
-			{
-				UINT32 SrcAddr = *(UINT32*) (Header+26);
-				ULONG Processor = KeGetCurrentProcessorNumber();
-
-				char tmp[32];
-				ipxs(tmp, 32, SrcAddr);
-
-				LOG(LDBG, "Receive (%u) from %s on %u", FrameLength, tmp, Processor);
-			}
+			NblDropTail->Next = nbl;
+			NblDropTail = nbl;
 		}
+
+		Next = nbl->Next;
+		nbl->Next = NULL;
 	}
 
-	NdisFIndicateReceiveNetBufferLists(Context->FilterModuleHandle, NetBufferLists, PortNumber, NumberOfNetBufferLists, ReceiveFlags);
+	// Restore IRQL if was modified by us.
+	if(!(ReceiveFlags & NDIS_RECEIVE_FLAGS_DISPATCH_LEVEL))
+		KeLowerIrql(PrevIrql);
+
+	// Restore AVX state.
+	KeRestoreExtendedProcessorState(&SaveState);
+
+	//LDBG("Batch done; accepted %u of %u", AcceptCount, NumberOfNetBufferLists);
+
+	// Release back the buffers for dropped packets.
+	if(NblDropHead)
+		NdisFReturnNetBufferLists(Context->FilterModuleHandle, NblDropHead, ReceiveFlags);
+
+	// Pass up the accepted to the next layer.
+	if(NblAcceptHead)
+		NdisFIndicateReceiveNetBufferLists(Context->FilterModuleHandle, NblAcceptHead, PortNumber, AcceptCount, ReceiveFlags);
 }
 
 
@@ -240,7 +284,7 @@ VOID FilterReceive
 
 NTSTATUS RequestDispatch
 (
-	PDEVICE_OBJECT DeviceObject, 
+	PDEVICE_OBJECT DeviceObject,
 	PIRP Irp
 )
 {
@@ -253,8 +297,7 @@ NTSTATUS RequestDispatch
 	IrpStack = IoGetCurrentIrpStackLocation(Irp);
 
 
-
-	LOG(LDBG, "IoRequest Major: %u", IrpStack->MajorFunction);
+	LDBG("IoRequest Major: %u", IrpStack->MajorFunction);
 
 	Irp->IoStatus.Status = Status;
 	IoCompleteRequest(Irp, IO_NO_INCREMENT);
@@ -271,7 +314,9 @@ VOID DriverUnload
 	UNREFERENCED_PARAMETER(DriverObject);
 
 
-	LOG(LINFO, "Driver unloading");
+	LOG("Driver unloading");
+
+	ntfe_cleanup();
 
 	if(FltDeviceHandle != NULL)
 		NdisDeregisterDeviceEx(FltDeviceHandle);
@@ -283,6 +328,7 @@ VOID DriverUnload
 	FltDeviceHandle = NULL;
 	FltDriverHandle = NULL;
 }
+
 
 
 NTSTATUS DriverEntry
@@ -299,7 +345,7 @@ NTSTATUS DriverEntry
 	PDRIVER_DISPATCH DispatchTable[IRP_MJ_MAXIMUM_FUNCTION+1];
 
 	UNREFERENCED_PARAMETER(RegistryPath);
-	LOG(LINFO, "Driver entry -- 2");
+	LOG("Driver entry -- 2");
 
 	KeInitializeSpinLock(&DriverLock);
 	ExInitializeSListHead(&FltModuleFreeList);
@@ -307,6 +353,16 @@ NTSTATUS DriverEntry
 
 	for(INT i = ARRAYSIZE(FltModules)-1; i >= 0; i--)
 		ExInterlockedPushEntrySList(&FltModuleFreeList, &FltModules[i].Next, &DriverLock);
+
+
+	// Firewall engine initialization
+	if(!ntfe_init())
+	{
+		ntfe_cleanup();
+
+		LOG("ntfe_init() failed");
+		return STATUS_INTERNAL_ERROR;
+	}
 
 	// Install driver unload handler.
 	DriverObject->DriverUnload = &DriverUnload;
@@ -333,7 +389,8 @@ NTSTATUS DriverEntry
 
 	if((Status = NdisFRegisterFilterDriver(DriverObject, (NDIS_HANDLE) DriverObject, &Desc, &FltDriverHandle)) != NDIS_STATUS_SUCCESS)
 	{
-		LOG(LFATAL, "Failed to register filter: 0x%X", Status);
+		LFATAL("Failed to register filter: 0x%X", Status);
+		Status = STATUS_INTERNAL_ERROR;
 		goto done;
 	}
 
@@ -359,62 +416,17 @@ NTSTATUS DriverEntry
 
 		if((Status = NdisRegisterDeviceEx(FltDriverHandle, &DevAttr, &FltDeviceObject, &FltDeviceHandle)) != NDIS_STATUS_SUCCESS)
 		{
-			LOG(LFATAL, "Failed to register device");
 			NdisFDeregisterFilterDriver(FltDriverHandle);
-		}
 
-		LOG(LDBG, "Registered device");
+			LOG("Failed to register device");
+			Status = STATUS_INTERNAL_ERROR;
+			goto done;
+		}
 	}
 
-	LOG(LINFO, "Driver successfully loaded.");
+	LOG("Driver successfully loaded.");
 
 done:
 	return Status;
 }
 
-
-
-
-UINT8 ipxs(char* pd, UINT sz, UINT ip4)
-{
-	char* ptmp = pd;
-	UINT8 o;
-
-	UNREFERENCED_PARAMETER(sz);
-
-	if(!ip4)
-	{
-		*((UINT64*) pd) = 0x00302E302E302E30;
-		return 7;
-	}
-
-	o = (ip4&0xFF);
-
-	for(INT i = 0; i < 4; i++)
-	{
-		if((o / 100))
-		{
-			*pd++ = '0' + (o/100);
-			o -= (o/100)*100;
-
-			*pd++ = '0' + (o/10);
-			o -= (o/10)*10;
-		}
-
-		else if((o / 10))
-		{
-			*pd++ = '0' + (o/10);
-			o -= (o/10)*10;
-		}
-
-		*pd++ = '0' + o;
-		*pd++ = '.';
-
-		ip4 >>= 8;
-		o = (ip4 & 0xFF);
-	}
-
-	*--pd = '\0';
-
-	return (UINT8) (pd-ptmp);
-}

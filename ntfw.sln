@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ntfweng", "ntfweng\ntfweng.
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ntfwkm", "ntfwkm\ntfwkm.vcxproj", "{34399EDA-F495-4173-A600-9EA8863FA8E7}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ntfw", "ntfw\ntfw.vcxproj", "{9D3F12A6-CB3A-4F77-81A0-6CE367ECB906}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM64 = Debug|ARM64
@@ -47,6 +49,18 @@ Global
 		{34399EDA-F495-4173-A600-9EA8863FA8E7}.Release|x86.ActiveCfg = Release|x64
 		{34399EDA-F495-4173-A600-9EA8863FA8E7}.Release|x86.Build.0 = Release|x64
 		{34399EDA-F495-4173-A600-9EA8863FA8E7}.Release|x86.Deploy.0 = Release|x64
+		{9D3F12A6-CB3A-4F77-81A0-6CE367ECB906}.Debug|ARM64.ActiveCfg = Debug|x64
+		{9D3F12A6-CB3A-4F77-81A0-6CE367ECB906}.Debug|ARM64.Build.0 = Debug|x64
+		{9D3F12A6-CB3A-4F77-81A0-6CE367ECB906}.Debug|x64.ActiveCfg = Debug|x64
+		{9D3F12A6-CB3A-4F77-81A0-6CE367ECB906}.Debug|x64.Build.0 = Debug|x64
+		{9D3F12A6-CB3A-4F77-81A0-6CE367ECB906}.Debug|x86.ActiveCfg = Debug|Win32
+		{9D3F12A6-CB3A-4F77-81A0-6CE367ECB906}.Debug|x86.Build.0 = Debug|Win32
+		{9D3F12A6-CB3A-4F77-81A0-6CE367ECB906}.Release|ARM64.ActiveCfg = Release|x64
+		{9D3F12A6-CB3A-4F77-81A0-6CE367ECB906}.Release|ARM64.Build.0 = Release|x64
+		{9D3F12A6-CB3A-4F77-81A0-6CE367ECB906}.Release|x64.ActiveCfg = Release|x64
+		{9D3F12A6-CB3A-4F77-81A0-6CE367ECB906}.Release|x64.Build.0 = Release|x64
+		{9D3F12A6-CB3A-4F77-81A0-6CE367ECB906}.Release|x86.ActiveCfg = Release|Win32
+		{9D3F12A6-CB3A-4F77-81A0-6CE367ECB906}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

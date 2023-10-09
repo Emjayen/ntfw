@@ -2,8 +2,15 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="ntfweng.cpp" />
+    <ClCompile Include="eal.cpp" />
+    <ClCompile Include="host.cpp" />
+    <ClCompile Include="helper.cpp" />
+    <ClCompile Include="test.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="net.h" />
+    <ClInclude Include="eal.h" />
+    <ClInclude Include="ntfweng.h" />
+    <ClInclude Include="helper.h" />
   </ItemGroup>
 </Project>

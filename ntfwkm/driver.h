@@ -18,15 +18,6 @@
 #define NTDEV_NAME    L"\\Device\\" NTFW_KMD_NAME
 #define NTDEV_SYMLINK L"\\DosDevices\\" NTFW_KMD_NAME
 
-// Logging
-#define LFATAL  0
-#define LERR    1
-#define LWARN   2
-#define LINFO   3
-#define LDBG    4
-
-#define LOG(level, Format, ...) DbgPrint("[ntfw] " Format "\n", __VA_ARGS__)
-
 
 #define NTFW_IOCTL(Request, Method) \
 	CTL_CODE(FILE_DEVICE_PHYSICAL_NETCARD, Request, Method, FILE_ANY_ACCESS)

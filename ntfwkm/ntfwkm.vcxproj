@@ -79,11 +79,13 @@
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <OutputName>ndislwf</OutputName>
     <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
+    <IncludePath>.\ntfweng;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <OutputName>ndislwf</OutputName>
     <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
+    <IncludePath>.\ntfweng;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
@@ -96,14 +98,16 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
-      <TreatWarningAsError>true</TreatWarningAsError>
+      <TreatWarningAsError>false</TreatWarningAsError>
       <AdditionalIncludeDirectories>..;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreProcessorDefinitions>%(PreProcessorDefinitions);NDIS_WDM=1;NDIS630=1</PreProcessorDefinitions>
-      <DisableSpecificWarnings>%(DisableSpecificWarnings);4201;4214</DisableSpecificWarnings>
+      <DisableSpecificWarnings>%(DisableSpecificWarnings);4201;4214;4706</DisableSpecificWarnings>
       <PreCompiledHeaderFile>
       </PreCompiledHeaderFile>
       <PreCompiledHeader>NotUsing</PreCompiledHeader>
       <BufferSecurityCheck>false</BufferSecurityCheck>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <SDLCheck>false</SDLCheck>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);..;.;</AdditionalIncludeDirectories>
@@ -119,14 +123,16 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
-      <TreatWarningAsError>true</TreatWarningAsError>
+      <TreatWarningAsError>false</TreatWarningAsError>
       <AdditionalIncludeDirectories>..;.;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreProcessorDefinitions>%(PreProcessorDefinitions);NDIS_WDM=1;NDIS650=1</PreProcessorDefinitions>
-      <DisableSpecificWarnings>%(DisableSpecificWarnings);4201;4214</DisableSpecificWarnings>
+      <DisableSpecificWarnings>%(DisableSpecificWarnings);4201;4214;4706</DisableSpecificWarnings>
       <PreCompiledHeaderFile>
       </PreCompiledHeaderFile>
       <PreCompiledHeader>NotUsing</PreCompiledHeader>
       <BufferSecurityCheck>false</BufferSecurityCheck>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <SDLCheck>false</SDLCheck>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);..;.;</AdditionalIncludeDirectories>
@@ -183,11 +189,19 @@
     <FilesToPackage Include="$(TargetPath)" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\ntfweng\eal.h" />
+    <ClInclude Include="..\ntfweng\helper.h" />
+    <ClInclude Include="..\ntfweng\net.h" />
+    <ClInclude Include="..\ntfweng\ntfweng.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="driver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\ntfweng\helper.cpp" />
+    <ClCompile Include="..\ntfweng\host.cpp" />
+    <ClCompile Include="..\ntfweng\ntfweng.cpp" />
     <ClCompile Include="driver.cpp" />
+    <ClCompile Include="eal.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Inf Include="ntfwkm.inf">
