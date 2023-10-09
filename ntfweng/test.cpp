@@ -132,7 +132,7 @@ DWORD WINAPI ThreadEntry(DWORD ThreadId)
 }
 
 
-#define THREADS  1
+#define THREADS  10
 
 
 
@@ -152,18 +152,6 @@ int main()
 	frame.ip.ihl = IP_IHL_MIN;
 	frame.ip.saddr = 0xDEAD;
 	frame.ip.proto = 1;
-
-	SetThreadAffinityMask(GetCurrentThread(), 1);
-
-	for(int i = 0; i < 1000; i++)
-	{
-		Sleep(1000);
-
-		ntfe_rx_prepare();
-		printf("\np1: %u", ntfe_rx(&frame, 50000));
-		printf("\np2: %u", ntfe_rx(&frame, 50000));
-		printf("\np3: %u", ntfe_rx(&frame, 1000));
-	}
 
 
 

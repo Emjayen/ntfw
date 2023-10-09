@@ -4,7 +4,6 @@
 //
 #define IDD_RULES                       101
 #define IDD_MAIN                        104
-#define IDD_DIALOG1                     106
 #define IDD_BASIC                       106
 #define IDC_COMBO1                      1004
 #define IDC_COMBO2                      1005
@@ -90,6 +89,12 @@
 #define IDC_EDIT43                      1085
 #define IDC_TAB                         1085
 #define IDC_EDIT44                      1086
+#define IDC_CHECK1                      1086
+#define IDC_LIST1                       1087
+#define IDC_EDIT1                       1088
+#define IDC_BUTTON1                     1089
+#define IDC_LIST2                       1090
+#define IDC_BUTTON2                     1091
 #define IDC_EDIT45                      1096
 #define IDC_EDIT46                      1097
 #define IDC_EDIT47                      1098
@@ -106,7 +111,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        108
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1086
+#define _APS_NEXT_CONTROL_VALUE         1092
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

@@ -115,8 +115,7 @@ bool ntfe_rx(void* data, u16 len)
 	if(frame->eth.proto != htons(ETH_P_IP))
 	{
 		sig.data &= 0xFF;
-		//return !!rule_lookup(&sig);
-		return true;
+		return !!rule_lookup(&sig);
 	}
 
 	//
@@ -154,8 +153,8 @@ bool ntfe_rx(void* data, u16 len)
 	// This is the earliest point in processing we can know the source address; start 
 	// bringing in the containing bucket. Unfortunately we're still unlikely to hide
 	// much of the latency.
-	//htb = host_fetch_bucket(saddr);
-	//prefetch(htb);
+	htb = host_fetch_bucket(saddr);
+	prefetch(htb);
 
 	if(frame->ip.frag_off & htons(IP_MF | IP_OFFSET))
 	{
@@ -193,17 +192,8 @@ bool ntfe_rx(void* data, u16 len)
 	// host so in which case: drop.
 	sig.data &= mask;
 
-	//if(!(rl = rule_lookup(&sig)))
-	//	return false;
-
-	static rule test;
-	test.in_byte_scale = 1;
-	test.in_byte_tb = 0;
-
-	gs.tbcfg[0].rate = 100;
-	gs.tbcfg[0].capacity = 100*1000;
-
-	rl = &test;
+	if(!(rl = rule_lookup(&sig)))
+		return false;
 
 	// At this point:
 	//   - This is public traffic.
