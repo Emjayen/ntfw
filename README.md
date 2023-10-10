@@ -2,19 +2,9 @@
 ntfw is a light-weight, fixed-function L3 'firewall' for server deployments of Windows which provides:
 
 - Host-based authorization to private services with support for remote configuration.
-- Traffic policing to help protect public services from volumetric abuse.
+- Traffic policing to help protect public services from abuse via rate-limiting.
 
-
-<br>
-
-### Limitations
-
-- IPv6 is not currently supported and is implicitly dropped.
-- Asymmetric traffic where-in ingress is relatively low under normal conditions is assumed.
-- Effectiveness is impaired in the presence of *spoofed* DDoS attacks.[^1]
-
-The latter two points are only relevant to the traffic-policing feature.
-
+IPv6 is not currently supported and may only be unconditionally dropped or accepted.
 <br>
 
 ### Overview
