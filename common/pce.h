@@ -4,10 +4,15 @@
  */
 #pragma once
 #include <intrin.h>
+#pragma warning(disable:4200) /* Zero-sized arrays */
 
 
 
-
+// Various global assumptions
+#define CACHE_LINE_SZ  64
+#define SMP_PREFER_SZ  128 /* Streaming granularity on P4+ */
+#define cache_align  __align(CACHE_LINE_SZ)
+#define smp_align   __align(SMP_PREFER_SZ)
 
 // Basic types
 typedef unsigned char u8;
@@ -50,3 +55,11 @@ typedef u16 be16;
 #define prefetcht1(addr) _mm_prefetch((const char*) addr, _MM_HINT_T1)
 #define prefetcht2(addr) _mm_prefetch((const char*) addr, _MM_HINT_T2)
 #define prefetchw(addr) _m_prefetchw((const volatile void*) addr)
+
+// Usual network endianness things.
+#define htons(v) bswap16(v)
+#define htonl(v) bswap32(v)
+#define ntohs(v) htons(v)
+
+// Memory
+#define memzero(dst, len) memset(dst, 0, len)

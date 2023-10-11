@@ -3,7 +3,7 @@
  *   Host state management routines.
  *
  */
-#include "ntfweng.h"
+#include "ntfe.h"
 #include "helper.h"
 #include "eal.h"
 
@@ -200,6 +200,7 @@ s8 host_insert(htbucket* htb, be32 saddr)
 		if((idx = allocate(htb, tsec, HOST_PRI_NONE)) < 0)
 		{
 			// Not a major concern for unauthorized users.
+			cpu->sc.htb_ins_fails++;
 		}
 
 		else

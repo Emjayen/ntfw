@@ -4,9 +4,11 @@
  */
 #include "net.h"
 #include "eal.h"
-#include "ntfweng.h"
+#include "ntfe.h"
 #include "helper.h"
 #include <intrin.h>
+#include <memory.h>
+
 
 
 
@@ -42,20 +44,20 @@ u16 rule_hashfn(flowsig* fs, u32 seed)
 
 rule* rule_lookup(flowsig* fs)
 {
-	rule& rl = gs.rules[rule_hashfn(fs, gs.rule_tbl_seed) & (1<<gs.rule_tbl_sz)];
+	rule& rl = gs.rules[rule_hashfn(fs, gs.rule_seed) & (1<<gs.rule_hashsz)];
 
 	return rl.fsig.data == fs->data ? &rl : NULL;
 }
 
 
-bool token_bucket_charge(tbucket* tb, tbucket_params* params, u32 tmsec, u32 cost)
+bool token_bucket_charge(tbucket* tb, tbucket_desc* tbd, u32 tmsec, u32 cost)
 {
 	// Replenish bucket with tokens over delta.
 	const u32 dt = tmsec - tb->last;
 
 	if(dt)
 	{
-		tb->tokens = min(params->capacity, satadd32(tb->tokens, satmul32(dt, params->rate)));
+		tb->tokens = min(tbd->capacity, satadd32(tb->tokens, satmul32(dt, tbd->rate)));
 		tb->last = tmsec;
 	}
 
@@ -63,7 +65,7 @@ bool token_bucket_charge(tbucket* tb, tbucket_params* params, u32 tmsec, u32 cos
 	tb->tokens = satsub32(tb->tokens, cost);
 
 	// Return if we passed.
-	return tb->tokens > params->level;
+	return tb->tokens > tbd->level;
 }
 
 
@@ -83,8 +85,8 @@ bool host_charge_packet(host_state* host, rule* rl, u16 in_bytes)
 	// Charge each of the user's per-operation buckets.
 	const u32 tmsec = (u32) time_msec();
 
-	result -= in_bytes_cost ? token_bucket_charge(&host->tb[rl->in_byte_tb], &gs.tbcfg[rl->in_byte_tb], tmsec, in_bytes_cost) : 1;
-	result -= in_packet_cost ? token_bucket_charge(&host->tb[rl->in_packet_tb], &gs.tbcfg[rl->in_packet_tb], tmsec, in_packet_cost) : 1;
+	result -= in_bytes_cost ? token_bucket_charge(&host->tb[rl->in_byte_tb], &gs.tbdesc[rl->in_byte_tb], tmsec, in_bytes_cost) : 1;
+	result -= in_packet_cost ? token_bucket_charge(&host->tb[rl->in_packet_tb], &gs.tbdesc[rl->in_packet_tb], tmsec, in_packet_cost) : 1;
 
 	// Return non-zero if we failed to conform to any token bucket.
 	spin_release(&host->lock, 0);
@@ -115,7 +117,9 @@ bool ntfe_rx(void* data, u16 len)
 	if(frame->eth.proto != htons(ETH_P_IP))
 	{
 		sig.data &= 0xFF;
-		return !!rule_lookup(&sig);
+
+		if(!rule_lookup(&sig))
+			goto drop;
 	}
 
 	//
@@ -139,7 +143,7 @@ bool ntfe_rx(void* data, u16 len)
 	if(frame->ip.ihl != IP_IHL_MIN)
 	{
 		cpu->sc.rx_malformed++;
-		return false;
+		goto drop;
 	}
 
 	// This should never be possible, however it may occur due to local software, and
@@ -147,19 +151,19 @@ bool ntfe_rx(void* data, u16 len)
 	if((saddr = frame->ip.saddr) == 0)
 	{
 		cpu->sc.rx_malformed++;
-		return false;
+		goto drop;
 	}
 
 	// This is the earliest point in processing we can know the source address; start 
 	// bringing in the containing bucket. Unfortunately we're still unlikely to hide
 	// much of the latency.
 	htb = host_fetch_bucket(saddr);
-	prefetch(htb);
+	//prefetch(htb);
 
 	if(frame->ip.frag_off & htons(IP_MF | IP_OFFSET))
 	{
 		cpu->sc.rx_malformed++;
-		return false;
+		goto drop;
 	}
 
 	if(sig.proto == IP_P_UDP || sig.proto == IP_P_TCP || sig.proto == IP_P_LDP)
@@ -171,7 +175,7 @@ bool ntfe_rx(void* data, u16 len)
 		if(sig.dport == 0)
 		{
 			cpu->sc.rx_malformed++;
-			return false;
+			goto drop;
 		}
 
 		// Port field is valid.
@@ -180,7 +184,7 @@ bool ntfe_rx(void* data, u16 len)
 
 	// If the host is authorized then everything is always accepted.
 	if((hidx = host_lookup(htb, saddr)) >= 0 && htb->ctrl[hidx].pri != HOST_PRI_NONE)
-		return true;
+		goto accept;
 
 	// If it exists, start bringing in the host-state in preperation for modifying the
 	// the token buckets.
@@ -193,7 +197,10 @@ bool ntfe_rx(void* data, u16 len)
 	sig.data &= mask;
 
 	if(!(rl = rule_lookup(&sig)))
-		return false;
+	{
+		cpu->sc.rx_drop_priv++;
+		goto drop;
+	}
 
 	// At this point:
 	//   - This is public traffic.
@@ -210,15 +217,22 @@ bool ntfe_rx(void* data, u16 len)
 	{
 		// Insertion failure is possible, however it should only ever be transient. In this
 		// case we drop the packet.
-		return false;
+		goto drop;
 	}
 
 	// Apply charges, checking conformance.
 	if(host_charge_packet(get_host_state(htb, hidx), rl, len - sizeof(eth_hdr)))
-		return false;
+	{
+		cpu->sc.rx_drop_policed++;
+		goto drop;
+	}
 
-	// Accept
+accept:
 	return true;
+
+drop:
+	cpu->sc.rx_dropped++;
+	return false;
 }
 
 
@@ -253,7 +267,6 @@ void ntfe_tx(void* data, u16 len)
 	// Extract the destination address and fetch their containing bucket.
 	auto daddr = frame->ip.daddr;
 	htb = host_fetch_bucket(daddr);
-	prefetch(htb);
 
 	if(sig.proto == IP_P_UDP || sig.proto == IP_P_TCP || sig.proto == IP_P_LDP)
 	{
@@ -283,7 +296,8 @@ void ntfe_rx_prepare()
 	// Start bringing in memory we're reliably going to touch, in 
 	// order of access for documentation sake.
 	prefetcht1(&gs);
-	prefetcht1(current_cpu_local());
+	prefetcht1(cpu);
+	prefetchw(&cpu->sc);
 	prefetcht1(&gs.rules);
 	
 	// Refresh the high-precision clock timestamp cache of the current 
@@ -292,9 +306,111 @@ void ntfe_rx_prepare()
 	cpu->ts_msec = (cpu->hpc * 1000) / gs.hpc_hz;
 }
 
-#include <Windows.h>
 
-bool ntfe_init()
+
+static bool load_configuration(ntfe_config* cfg, u32 cfg_len)
+{
+	union
+	{
+		byte* data;
+		ntfe_meter* meter;
+		ntfe_rule* rl;
+		ntfe_host* host;
+		ntfe_user* user;
+	}; data = cfg->ect;
+
+
+	// Basic bounds check.
+	if(cfg->length > cfg_len || cfg_len < sizeof(ntfe_config))
+		return false;
+
+	if(cfg->length > sizeof(ntfe_config) +
+		(cfg->rule_count * sizeof(ntfe_rule)) +
+		(cfg->meter_count * sizeof(ntfe_meter)) +
+		(cfg->host_count * sizeof(ntfe_host)) +
+		(cfg->user_count * sizeof(ntfe_user)))
+		return false;
+
+	// Check reserved fields.
+	if(cfg->reserved)
+		return false;
+
+	// Version check
+	if(cfg->version != NTFE_CFG_VERSION)
+		return false;
+
+	// Load rules
+	if(cfg->rule_count > MAX_RULES || (1<<cfg->rule_hashsz) > MAX_RULES)
+		return false;
+
+	gs.rule_hashsz = cfg->rule_hashsz;
+	gs.rule_seed = cfg->rule_seed;
+
+	for(uint i = 0; i < cfg->rule_count; i++)
+	{
+		ntfe_rule& src = *rl++;
+		flowsig fs;
+		u16 h;
+
+		fs.ether = (u8) (src.ether >> 7);
+		fs.proto = src.proto;
+		fs.dport = src.dport;
+
+		rule& dst = gs.rules[(h = rule_hashfn(&fs, cfg->rule_seed))];
+
+		if(dst.fsig.data != 0)
+			return false;
+
+		dst.fsig.data = fs.data;
+		dst.in_byte_scale = src.byte_scale;
+		dst.in_packet_scale = src.packet_scale;
+		dst.in_syn_scale = src.syn_scale;
+		dst.in_byte_tb = src.byte_tb;
+		dst.in_packet_tb = src.packet_tb;
+		dst.in_syn_tb = src.syn_tb;
+	}
+
+
+	// Load meters
+	if(cfg->meter_count > MAX_METERS)
+		return false;
+
+	for(uint i = 0; i < cfg->meter_count; i++)
+	{
+		ntfe_meter& src = *meter++;
+		tbucket_desc& dst = gs.tbdesc[i];
+
+		dst.rate = src.rate;
+		dst.capacity = src.size;
+		dst.level = src.level;
+	}
+
+	// Load users
+	if(cfg->user_count > MAX_USERS || sizeof(ntfe_user::key) != sizeof(auth_user::key))
+		return false;
+
+	for(uint i = 0; i < cfg->user_count; i++)
+	{
+		ntfe_user& src = *user++;
+		auth_user& dst = gs.users[i];
+
+		memcpy(dst.key, src.key, sizeof(dst.key));
+	}
+
+	// Load statically authorized hosts.
+	for(uint i = 0; i < cfg->host_count; i++)
+	{
+		ntfe_host& src = *host++;
+
+		if(host_insert_authorized(host_fetch_bucket(src.saddr), src.saddr, HOST_PRI_STATIC) < 0)
+			return false;
+	}
+
+	return true;
+}
+
+
+bool ntfe_init(ntfe_config* cfg, u32 cfg_len)
 {
 	// Cache the frequency of the high-precision clock source. This is established at
 	// boot-time and is guarenteed to be stable.
@@ -306,6 +422,11 @@ bool ntfe_init()
 
 	// Grow by an initial growth amount.
 	host_pool_grow();
+
+	// Load configuration. Note that we must do this -after- the pool allocation, as 
+	// it will insert any statically authorized hosts.
+	if(!load_configuration(cfg, cfg_len))
+		return false;
 
 	return true;
 }

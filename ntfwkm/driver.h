@@ -22,4 +22,11 @@
 #define NTFW_IOCTL(Request, Method) \
 	CTL_CODE(FILE_DEVICE_PHYSICAL_NETCARD, Request, Method, FILE_ANY_ACCESS)
 
-#define IOCTL_NTFW_TEST  NTFW_IOCTL(0, METHOD_BUFFERED);
+
+
+/*
+ * IOCTL_NTFW_QUERY_COUNTERS
+ *    Retrieve performance counters.
+ *
+ */
+#define IOCTL_NTFW_QUERY_COUNTERS  NTFW_IOCTL(0, METHOD_BUFFERED);

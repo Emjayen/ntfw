@@ -9,8 +9,6 @@
 
 
 
-
-
 /*
  * QueryCurrentProcessorNumber
  *    Retrieve unique system-wide index of the current processor.

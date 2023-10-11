@@ -189,17 +189,10 @@
     <FilesToPackage Include="$(TargetPath)" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\ntfweng\eal.h" />
-    <ClInclude Include="..\ntfweng\helper.h" />
-    <ClInclude Include="..\ntfweng\net.h" />
-    <ClInclude Include="..\ntfweng\ntfweng.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="driver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\ntfweng\helper.cpp" />
-    <ClCompile Include="..\ntfweng\host.cpp" />
-    <ClCompile Include="..\ntfweng\ntfweng.cpp" />
     <ClCompile Include="driver.cpp" />
     <ClCompile Include="eal.cpp" />
   </ItemGroup>

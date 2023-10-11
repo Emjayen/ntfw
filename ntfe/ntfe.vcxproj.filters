@@ -1,16 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="ntfweng.cpp" />
-    <ClCompile Include="eal.cpp" />
-    <ClCompile Include="host.cpp" />
-    <ClCompile Include="helper.cpp" />
-    <ClCompile Include="test.cpp" />
+    <ClInclude Include="eal.h" />
+    <ClInclude Include="helper.h" />
+    <ClInclude Include="net.h" />
+    <ClInclude Include="ntfe.h" />
+    <ClInclude Include="ntfeusr.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="net.h" />
-    <ClInclude Include="eal.h" />
-    <ClInclude Include="ntfweng.h" />
-    <ClInclude Include="helper.h" />
+    <ClCompile Include="eal.cpp" />
+    <ClCompile Include="helper.cpp" />
+    <ClCompile Include="host.cpp" />
+    <ClCompile Include="ntfe.cpp" />
+    <ClCompile Include="test.cpp" />
   </ItemGroup>
 </Project>

@@ -1,9 +1,13 @@
-#include "ntfweng.h"
+#include "ntfe.h"
 #include "net.h"
 #include "helper.h"
 #include <Windows.h>
 #include <stdio.h>
 #include <stdint.h>
+
+
+
+bool EnablePrivilege(LPCWSTR lpPrivilegeName);
 
 
 
@@ -132,7 +136,7 @@ DWORD WINAPI ThreadEntry(DWORD ThreadId)
 }
 
 
-#define THREADS  10
+#define THREADS  1
 
 
 
@@ -145,6 +149,9 @@ int main()
 
 
 	SetProcessWorkingSetSize(GetCurrentProcess(), HPOOL_SIZE * 128, HPOOL_SIZE * 150);
+
+	if(!EnablePrivilege(SE_LOCK_MEMORY_NAME))
+		return -1;
 
 	net_frame frame = {};
 
@@ -201,3 +208,32 @@ int main()
 	return 0;
 }
 
+
+
+
+
+
+/*
+ * EnablePrivilege
+ *
+ */
+bool EnablePrivilege(LPCWSTR lpPrivilegeName)
+{
+	HANDLE hToken;
+	TOKEN_PRIVILEGES tp;
+
+
+	if(!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_ADJUST_PRIVILEGES, &hToken))
+		return false;
+
+	tp.PrivilegeCount = 1;
+	tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+	if(!LookupPrivilegeValueW(NULL, lpPrivilegeName, &tp.Privileges[0].Luid))
+	{
+		CloseHandle(hToken);
+		return false;
+	}
+
+	return AdjustTokenPrivileges(hToken, FALSE, &tp, 0, (PTOKEN_PRIVILEGES) NULL, 0) && GetLastError() == ERROR_SUCCESS;
+}
