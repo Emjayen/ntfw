@@ -25,6 +25,12 @@
 // General
 #define NTFE_MAX_IDENT  32
 
+// NTFP UDP port
+#define NTFP_PORT  5662
+
+// Public key size
+#define NTFE_PKEY_SZ  32
+
 
 
 //
@@ -67,25 +73,74 @@ struct ntfe_rule
 	u8 syn_tb;
 };
 
+
+struct ntfe_pkey
+{
+	union
+	{
+		byte key[NTFE_PKEY_SZ];
+		u64 magic; /* Low 64-bits used as protocol magic. */
+	};
+};
+
 struct ntfe_config
 {
 	u32 reserved; /* MBZ */
 	u16 version; /* 0 */
 	u16 length; /* Total size of this structure, in bytes. */
 	u64 create_time; /* NTFT timestamp when this configuration was authored. */
-	u64 ntfp_magic; /* Magic bits for ntfp header. */
 	u32 unused[8]; /* MBZ */
+	ntfe_pkey pkey; /* Public key for authorized users. */
+	u32 pkey_twnd; /* Time window acceptable for keys, in msec. */
 	u32 rule_seed; /* Seed used to generate rule-table by user. */
 	u32 rule_hashsz; /* Size of the rule table the user generated, in bits. */
 	u32 rule_count; /* Number of rule table entries. */
 	u32 meter_count; /* Number of token bucket descriptors. */
-	u32 user_count; /* Number of authorized users. */
 	u32 host_count; /* Number of statically authorized addresses configured. */
  // ntfe_rule[rule_count];
  // ntfe_meter[tbd_count]
  // ntfe_user users[user_count] 
  // ntfe_host static_hosts[static_count];
 	byte ect[];
+};
+
+
+/*
+ * ntfp -- ntfw protocol.
+ *
+ */
+struct ntfp_hdr
+{
+	u64 magic; /* Magic shared key. This also generally 16-byte aligns the next field. */
+	byte signature[64]; /* Ed25519 signature over the payload. */
+};
+
+struct ntfp_auth
+{
+	ntfp_hdr hdr;
+	be32 addr; /* IPv4 address to authorize. Must match protocol header. */
+};
+
+struct ntfp_msg
+{
+	ntfp_hdr hdr;
+
+	union
+	{
+		struct
+		{
+			u64 timestamp; /* NTFT UTC timestamp of message creation. */
+			byte reserved[6]; /* MBZ */
+			u16 len; /* Total message length, inclusive of this header. */
+			
+			union
+			{
+				ntfp_auth auth;
+			};
+		};
+
+		byte payload[];
+	};
 };
 
 #pragma pack()
@@ -116,6 +171,13 @@ void ntfe_cleanup();
 void ntfe_rx_prepare();
 
 
+/*
+ * ntfe_rx_prepare
+ *    Hint that a batch of transmit processing is about to commence.
+ *
+ */
+void ntfe_tx_prepare();
+
 
 /*
  * ntfe_rx
@@ -123,3 +185,11 @@ void ntfe_rx_prepare();
  *
  */
 bool ntfe_rx(void* data, u16 len);
+
+
+/*
+ * ntfe_tx
+ *   Process transmit frame.
+ *
+ */
+void ntfe_tx(void* data, u16 len);

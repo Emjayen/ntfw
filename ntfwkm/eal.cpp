@@ -4,7 +4,7 @@
  *    ntfweng's environment implementation.
  *
  */
-#include "ntfweng/eal.h"
+#include <ntfe/eal.h>
 #include <ntddk.h>
 #include <ntstrsafe.h>
 
@@ -20,7 +20,6 @@ u32 QueryCurrentProcessorNumber()
 }
 
 
-
 u64 HPC()
 {
 	return KeQueryPerformanceCounter(NULL).QuadPart;
@@ -33,6 +32,15 @@ u64 HPCHz()
 	KeQueryPerformanceCounter(&Hz);
 
 	return Hz.QuadPart;
+}
+
+
+u64 QuerySystemTime()
+{
+	u64 t;
+
+	KeQuerySystemTime(&t);
+	return t;
 }
 
 

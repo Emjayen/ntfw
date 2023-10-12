@@ -121,12 +121,13 @@ cache_align struct host_state
 	u32 lock;
 };
 
-// User
-struct auth_user
+
+
+// Authorization configuration
+cache_align struct auth_info
 {
-	byte key[HMAC_KEY_SZ];
-	u32 user_id;
-	byte reserved[28];
+	ntfe_pkey pkey;
+	u64 twnd; /* System time (UTC) window we're willing to accept keys within, in NTFT. */
 };
 
 
@@ -172,7 +173,10 @@ cache_align struct cpu_local
 	// They're placed on their own line [on each cpu] due to being periodically 
 	// aggregated and tested (read-only) by an arbitrary core to determine if the
 	// aforementioned criteria is met.
-	cache_align tbucket gtb;
+	//
+	// Not currently implemented.
+	//
+	/* cache_align tbucket gtb; */
 };
 
 
@@ -194,7 +198,6 @@ cache_align struct _gs
 	} hpool;
 
 	u64 hpc_hz;
-	u64 ntfp_magic;
 
 	u8 rule_hashsz; /* Rule table size, in bits. (Copied from config) */
 	u32 rule_seed; /* Rule table hashfn seed (Copied from config) */
@@ -202,7 +205,7 @@ cache_align struct _gs
 	rule rules[MAX_RULES];
 	tbucket_desc tbdesc[MAX_METERS];
 	cpu_local _cpu_local[MAX_CPUS];
-	auth_user users[MAX_USERS];
+	auth_info auth;
 	htbucket host_tbl[HTBL_SIZE];
 } extern gs;
 

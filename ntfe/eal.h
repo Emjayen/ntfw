@@ -17,6 +17,13 @@
 u32 QueryCurrentProcessorNumber();
 
 
+/*
+ * QuerySystemTime
+ *    Retrieve the current (UTC) system time, in NTFT.
+ * 
+ */
+u64 QuerySystemTime();
+
 
 /*
  * HPC

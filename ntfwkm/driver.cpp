@@ -5,10 +5,8 @@
 #include <ndis.h>
 #include "driver.h"
 #include "config.h"
-#include "ntfweng/ntfweng.h"
-#include "ntfweng/eal.h"
-
-
+#include <ntfe\ntfeusr.h>
+#include <ntfe\eal.h>
 #pragma warning(disable:4706) // Assignment within conditional
 
 
@@ -235,7 +233,7 @@ VOID FilterReceive
 	// We must always be running at dispatch to prevent migration and/or preemption in the engine.
 	if(!(ReceiveFlags & NDIS_RECEIVE_FLAGS_DISPATCH_LEVEL))
 		PrevIrql = KeRaiseIrqlToDpcLevel();
-
+	
 	// Process each packet in the batch, segregating them into two seperate lists depending
 	// on their fate (accept or drop)
 	for(PNET_BUFFER_LIST nbl = NetBufferLists, Next; nbl; nbl = Next)
@@ -279,6 +277,60 @@ VOID FilterReceive
 }
 
 
+
+VOID FilterSendNetBufferLists
+(
+	NDIS_HANDLE         FilterModuleContext,
+	PNET_BUFFER_LIST    NetBufferLists,
+	NDIS_PORT_NUMBER    PortNumber,
+	ULONG               SendFlags
+)
+{
+	FLT_MODULE* Context = (FLT_MODULE*) FilterModuleContext;
+	KIRQL PrevIrql;
+	XSTATE_SAVE SaveState;
+	UCHAR FrameData[64];
+
+
+
+	// We must always be running at dispatch to prevent migration and/or preemption in the engine.
+	if(!(SendFlags & NDIS_SEND_FLAGS_DISPATCH_LEVEL))
+		PrevIrql = KeRaiseIrqlToDpcLevel();
+
+	// Indicate to ntfw that we're about to begin a batch.
+	ntfe_tx_prepare();
+
+	// Store AVX state.
+	if(KeSaveExtendedProcessorState(XSTATE_MASK_GSSE, &SaveState) != STATUS_SUCCESS)
+		goto done;
+
+	// Unlike the receive path, we don't perform transmit filtering; just pass them
+	// through ntfe for inspection.
+	for(PNET_BUFFER_LIST nbl = NetBufferLists; nbl; nbl = nbl->Next)
+	{
+		for(NET_BUFFER* nb = nbl->FirstNetBuffer; nb; nb = nb->Next)
+		{
+			auto FrameLength = nb->DataLength;
+			auto HeaderPtr = NdisGetDataBuffer(nb, min(FrameLength, sizeof(FrameData)), FrameData, 1, 1);
+
+			if(!HeaderPtr)
+				continue;
+
+			ntfe_tx(HeaderPtr, (u16) FrameLength);
+		}
+	}
+
+	// Restore AVX state.
+	KeRestoreExtendedProcessorState(&SaveState);
+
+	// Restore IRQL if it was modified by us.
+	if(!(SendFlags & NDIS_SEND_FLAGS_DISPATCH_LEVEL))
+		KeLowerIrql(PrevIrql);
+
+done:
+	// Passthrough the NBLs untouched.
+	NdisFSendNetBufferLists(Context->FilterModuleHandle, NetBufferLists, PortNumber, SendFlags);	
+}
 
 
 
@@ -356,7 +408,7 @@ NTSTATUS DriverEntry
 
 
 	// Firewall engine initialization
-	if(!ntfe_init())
+	if(!ntfe_init(NULL, 0))
 	{
 		ntfe_cleanup();
 

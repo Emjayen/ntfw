@@ -133,6 +133,13 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <SDLCheck>false</SDLCheck>
+      <Optimization>MaxSpeed</Optimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <ControlFlowGuard>false</ControlFlowGuard>
+      <IntelJCCErratum>true</IntelJCCErratum>
+      <GuardSignedReturns>false</GuardSignedReturns>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);..;.;</AdditionalIncludeDirectories>
@@ -140,6 +147,7 @@
     <Link>
       <AdditionalDependencies>%(AdditionalDependencies);ndis.lib</AdditionalDependencies>
       <EntryPointSymbol>DriverEntry</EntryPointSymbol>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <DriverSign>
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
@@ -189,10 +197,31 @@
     <FilesToPackage Include="$(TargetPath)" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\ntfe\eal.h" />
+    <ClInclude Include="..\ntfe\ed25519\ed25519.h" />
+    <ClInclude Include="..\ntfe\ed25519\fe.h" />
+    <ClInclude Include="..\ntfe\ed25519\fixedint.h" />
+    <ClInclude Include="..\ntfe\ed25519\ge.h" />
+    <ClInclude Include="..\ntfe\ed25519\precomp_data.h" />
+    <ClInclude Include="..\ntfe\ed25519\sc.h" />
+    <ClInclude Include="..\ntfe\ed25519\sha512.h" />
+    <ClInclude Include="..\ntfe\helper.h" />
+    <ClInclude Include="..\ntfe\net.h" />
+    <ClInclude Include="..\ntfe\ntfe.h" />
+    <ClInclude Include="..\ntfe\ntfeusr.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="driver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\ntfe\ed25519\add_scalar.c" />
+    <ClCompile Include="..\ntfe\ed25519\fe.c" />
+    <ClCompile Include="..\ntfe\ed25519\ge.c" />
+    <ClCompile Include="..\ntfe\ed25519\sc.c" />
+    <ClCompile Include="..\ntfe\ed25519\sha512.c" />
+    <ClCompile Include="..\ntfe\ed25519\verify.c" />
+    <ClCompile Include="..\ntfe\helper.cpp" />
+    <ClCompile Include="..\ntfe\host.cpp" />
+    <ClCompile Include="..\ntfe\ntfe.cpp" />
     <ClCompile Include="driver.cpp" />
     <ClCompile Include="eal.cpp" />
   </ItemGroup>
@@ -200,6 +229,9 @@
     <Inf Include="ntfwkm.inf">
       <FileType>Document</FileType>
     </Inf>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\ntfe\ed25519\license.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

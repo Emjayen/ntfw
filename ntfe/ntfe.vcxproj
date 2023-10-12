@@ -84,7 +84,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
@@ -97,7 +97,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
@@ -114,7 +114,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
@@ -127,7 +127,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
@@ -144,6 +144,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="eal.h" />
+    <ClInclude Include="ed25519\ed25519.h" />
+    <ClInclude Include="ed25519\fe.h" />
+    <ClInclude Include="ed25519\fixedint.h" />
+    <ClInclude Include="ed25519\ge.h" />
+    <ClInclude Include="ed25519\precomp_data.h" />
+    <ClInclude Include="ed25519\sc.h" />
+    <ClInclude Include="ed25519\sha512.h" />
     <ClInclude Include="helper.h" />
     <ClInclude Include="net.h" />
     <ClInclude Include="ntfe.h" />
@@ -151,10 +158,19 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="eal.cpp" />
+    <ClCompile Include="ed25519\add_scalar.c" />
+    <ClCompile Include="ed25519\fe.c" />
+    <ClCompile Include="ed25519\ge.c" />
+    <ClCompile Include="ed25519\sc.c" />
+    <ClCompile Include="ed25519\sha512.c" />
+    <ClCompile Include="ed25519\verify.c" />
     <ClCompile Include="helper.cpp" />
     <ClCompile Include="host.cpp" />
     <ClCompile Include="ntfe.cpp" />
     <ClCompile Include="test.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="ed25519\license.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

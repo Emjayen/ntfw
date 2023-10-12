@@ -145,7 +145,7 @@ int main()
 {
 
 
-	ntfe_init();
+	//ntfe_init();
 
 
 	SetProcessWorkingSetSize(GetCurrentProcess(), HPOOL_SIZE * 128, HPOOL_SIZE * 150);

@@ -6,6 +6,27 @@
     <ClInclude Include="net.h" />
     <ClInclude Include="ntfe.h" />
     <ClInclude Include="ntfeusr.h" />
+    <ClInclude Include="ed25519\ed25519.h">
+      <Filter>ed25519</Filter>
+    </ClInclude>
+    <ClInclude Include="ed25519\fe.h">
+      <Filter>ed25519</Filter>
+    </ClInclude>
+    <ClInclude Include="ed25519\fixedint.h">
+      <Filter>ed25519</Filter>
+    </ClInclude>
+    <ClInclude Include="ed25519\ge.h">
+      <Filter>ed25519</Filter>
+    </ClInclude>
+    <ClInclude Include="ed25519\precomp_data.h">
+      <Filter>ed25519</Filter>
+    </ClInclude>
+    <ClInclude Include="ed25519\sc.h">
+      <Filter>ed25519</Filter>
+    </ClInclude>
+    <ClInclude Include="ed25519\sha512.h">
+      <Filter>ed25519</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="eal.cpp" />
@@ -13,5 +34,33 @@
     <ClCompile Include="host.cpp" />
     <ClCompile Include="ntfe.cpp" />
     <ClCompile Include="test.cpp" />
+    <ClCompile Include="ed25519\add_scalar.c">
+      <Filter>ed25519</Filter>
+    </ClCompile>
+    <ClCompile Include="ed25519\fe.c">
+      <Filter>ed25519</Filter>
+    </ClCompile>
+    <ClCompile Include="ed25519\ge.c">
+      <Filter>ed25519</Filter>
+    </ClCompile>
+    <ClCompile Include="ed25519\sc.c">
+      <Filter>ed25519</Filter>
+    </ClCompile>
+    <ClCompile Include="ed25519\sha512.c">
+      <Filter>ed25519</Filter>
+    </ClCompile>
+    <ClCompile Include="ed25519\verify.c">
+      <Filter>ed25519</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="ed25519">
+      <UniqueIdentifier>{c7fa8acd-28bb-400b-86d2-f2feee73248f}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="ed25519\license.txt">
+      <Filter>ed25519</Filter>
+    </Text>
   </ItemGroup>
 </Project>

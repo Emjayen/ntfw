@@ -34,6 +34,14 @@ u64 HPCHz()
 }
 
 
+u64 QuerySystemTime()
+{
+	u64 t;
+	GetSystemTimeAsFileTime((FILETIME*) &t);
+	return t;
+}
+
+
 void* RegionAllocate(u32 RegionSz)
 {
 	return VirtualAlloc(NULL, RegionSz, MEM_RESERVE, PAGE_READWRITE);

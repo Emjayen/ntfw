@@ -6,6 +6,7 @@
 #include "eal.h"
 #include "ntfe.h"
 #include "helper.h"
+#include "ed25519/ed25519.h"
 #include <intrin.h>
 #include <memory.h>
 
@@ -96,6 +97,54 @@ bool host_charge_packet(host_state* host, rule* rl, u16 in_bytes)
 
 
 
+static void ntfp_rx_process(net_frame* frame, u16 len)
+{
+	ntfp_msg* msg = (ntfp_msg*) &(&frame->udp)[1];
+	
+
+	// Verify magic; elides the need for expensive processing ahead. This
+	// access is legal as we're guarenteed atleast 64 bytes of frame
+	// data. 
+	if(msg->hdr.magic != gs.auth.pkey.magic)
+		return;
+
+	// Pull link header & validate network.
+	if((len -= sizeof(eth_hdr)) < sizeof(ip_hdr) || len < ntohs(frame->ip.len))
+		return;
+
+	// May truncate due to link padding.
+	len = ntohs(frame->ip.len);
+
+	// Pull network header & validate transport.
+	if((len -= sizeof(ip_hdr)) < sizeof(udp_hdr) || len < ntohs(frame->udp.len))
+		return;
+
+	// Pull transport header & validate application.
+	if((len -= sizeof(udp_hdr)) < sizeof(ntfp_hdr) || len < msg->len)
+		return;
+	
+	// Verify it's within the left and right edges of the acceptability window.
+	const auto t = QuerySystemTime();
+
+	if(msg->timestamp < t - (gs.auth.twnd/2) || msg->timestamp > t + (gs.auth.twnd/2))
+		return;
+
+	// Verify the signature.
+	if(!ed25519_verify(msg->hdr.signature, msg->payload, msg->len, gs.auth.pkey.key))
+		return;
+
+	// This would be very wrong.
+	if(msg->auth.addr == 0)
+		return;
+
+	// Passed all checks; insert as authorized host.
+	if(host_insert_authorized(host_fetch_bucket(msg->auth.addr), msg->auth.addr, HOST_PRI_DYNAUTH) < 0)
+	{
+		// TODO: Should log this.
+	}
+}
+
+
 bool ntfe_rx(void* data, u16 len)
 {
 	net_frame* frame = (net_frame*) data;
@@ -182,6 +231,13 @@ bool ntfe_rx(void* data, u16 len)
 		mask |= 0xFFFF0000;
 	}
 
+	// NTFP hook.
+	if(sig.data == ((u32(IP_P_UDP)<<8) | u32((htons(NTFP_PORT))<<16)))
+	{
+		ntfp_rx_process(frame, len);
+		goto drop;
+	}
+
 	// If the host is authorized then everything is always accepted.
 	if((hidx = host_lookup(htb, saddr)) >= 0 && htb->ctrl[hidx].pri != HOST_PRI_NONE)
 		goto accept;
@@ -243,7 +299,7 @@ void ntfe_tx(void* data, u16 len)
 	htbucket* htb;
 	flowsig sig;
 	u32 mask;
-	u8 hidx;
+	s8 hidx;
 
 
 	// Extract the fields that constitute the flow signature.
@@ -293,8 +349,7 @@ void ntfe_tx(void* data, u16 len)
 
 void ntfe_rx_prepare()
 {
-	// Start bringing in memory we're reliably going to touch, in 
-	// order of access for documentation sake.
+	// Start bringing in memory we're reliably going to touch.
 	prefetcht1(&gs);
 	prefetcht1(cpu);
 	prefetchw(&cpu->sc);
@@ -306,6 +361,11 @@ void ntfe_rx_prepare()
 	cpu->ts_msec = (cpu->hpc * 1000) / gs.hpc_hz;
 }
 
+
+void ntfe_tx_prepare()
+{
+	ntfe_rx_prepare();
+}
 
 
 static bool load_configuration(ntfe_config* cfg, u32 cfg_len)
@@ -327,8 +387,7 @@ static bool load_configuration(ntfe_config* cfg, u32 cfg_len)
 	if(cfg->length > sizeof(ntfe_config) +
 		(cfg->rule_count * sizeof(ntfe_rule)) +
 		(cfg->meter_count * sizeof(ntfe_meter)) +
-		(cfg->host_count * sizeof(ntfe_host)) +
-		(cfg->user_count * sizeof(ntfe_user)))
+		(cfg->host_count * sizeof(ntfe_host)))
 		return false;
 
 	// Check reserved fields.
@@ -383,18 +442,6 @@ static bool load_configuration(ntfe_config* cfg, u32 cfg_len)
 		dst.rate = src.rate;
 		dst.capacity = src.size;
 		dst.level = src.level;
-	}
-
-	// Load users
-	if(cfg->user_count > MAX_USERS || sizeof(ntfe_user::key) != sizeof(auth_user::key))
-		return false;
-
-	for(uint i = 0; i < cfg->user_count; i++)
-	{
-		ntfe_user& src = *user++;
-		auth_user& dst = gs.users[i];
-
-		memcpy(dst.key, src.key, sizeof(dst.key));
 	}
 
 	// Load statically authorized hosts.

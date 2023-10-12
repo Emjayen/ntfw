@@ -170,7 +170,12 @@ struct net_frame
 {
 	eth_hdr eth;
 	ip_hdr ip;
-	tcp_hdr tcp;
+
+	union
+	{
+		tcp_hdr tcp;
+		udp_hdr udp;
+	};
 };
 
 
