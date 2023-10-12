@@ -5,6 +5,8 @@ ntfw is a light-weight, fixed-function L3 'firewall' for server deployments of W
 - Traffic policing to help protect public services from abuse via rate-limiting.
 
 IPv6 is not currently supported and may only be unconditionally dropped or accepted.
+
+<br>
 <br>
 
 ### Overview
@@ -16,11 +18,15 @@ is assumed to constitute your internal systems (e.g, RDP)
 Private traffic is subject to host-based authorization while public traffic is optionally subject to traffic policing.
 
 
+### Package Contents
+
+- `ntfw.exe` Control and configuration tool.
+- `ntfwkm.sys` Kernel-mode driver that implements the core filtering functionality.
+- `ntfwum.exe` (Optional) Provides the web-based authorization server-side. Installed as an NT service. 
+- `ntfwd.exe` (Optional) Provides the ntfw authorization client-side. Installed as an NT service.
 
 <br>
-
 <br>
-
 ### Notes
 
 - Rules are compiled into a perfect hash-table, providing deterministic O(1) lookup per-packet, and thus performance is not dependent on the number of rules defined.
