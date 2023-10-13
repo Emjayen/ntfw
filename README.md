@@ -20,7 +20,7 @@ Private traffic is subject to host-based authorization while public traffic is o
 
 ### Important
 
-In general, a *firewall* is not a substitute for a secure system, rather it should be considered an auxillary first line of defense and for
+Broadly, a *firewall* is not a substitute for a secure system, rather it should be considered an auxillary first line of defense and for
 the purpose of security evaluation, assumed not to exist at all.
 <br>
 
