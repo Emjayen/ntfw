@@ -26,8 +26,8 @@ the purpose of security evaluation: assumed not exist at all.
 <br>
 
 In particular, ntfw's filtering functionality should (conservatively) be considered *best-effort* as by design there is no contractual
-guarentee of strictly correct behavior in this regard. This relaxation of requirements permits decisions made in favor of performance in
-critical areas.[^1]
+guarentee of strictly correct behavior in this regard.[^1] This relaxation of requirements permits decisions made in favor of performance in
+critical areas.
 
 
 ### Package Contents
@@ -54,4 +54,4 @@ critical areas.[^1]
   alone. This will, in the current implementation atleast, improve performance by virtue of reducing the amount of contention over some cache-lines.
 
 
-[^1]: In practice, the worst-case scenario is limited to a handful packets errorneously being classed as authorized under very rare conditions.
+[^1]: In practice, the worst-case scenario is limited to a handful packets being errorneously classed as authorized under very rare conditions.
