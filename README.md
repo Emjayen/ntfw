@@ -22,7 +22,7 @@ Private traffic is subject to host-based authorization while public traffic is o
 ### Important
 
 Broadly, a *firewall* is not a substitute for a secure system; it should be considered an auxillary first line of defense and for
-the purpose of security evaluation: assumed not exist at all.
+the purpose of software security evaluation: assumed not exist at all.
 <br>
 
 In particular, ntfw's filtering functionality should (conservatively) be considered *best-effort* as by design there is no contractual
@@ -54,4 +54,4 @@ critical areas.
   alone. This will, in the current implementation atleast, improve performance by virtue of reducing the amount of contention over some cache-lines.
 
 
-[^1]: In practice, the worst-case scenario is limited to a handful packets being errorneously classed as authorized under very rare conditions.
+[^1]: In practice, the worst-case scenario is limited to a handful of packets being errorneously classed as authorized under very rare conditions.
