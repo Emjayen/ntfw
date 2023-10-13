@@ -52,4 +52,4 @@ guarentee of strictly correct behavior in this regard as to permit leeway in imp
   alone. This will, in the current implementation atleast, improve performance by virtue of reducing the amount of contention over some cache-lines.
 
 
-[^1]: In practice, the worst-case scenario is limited to a handful packets errorneously being classed as authorized under very circumstances.
+[^1]: In practice, the worst-case scenario is limited to a handful packets errorneously being classed as authorized under very rare conditions.
