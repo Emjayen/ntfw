@@ -3,7 +3,7 @@ ntfw is a light-weight, fixed-function L3 'firewall' for server deployments of W
 
 - Host-based authorization to private services with support for remote authentication.
 - Traffic policing to help protect public services from abuse via rate-limiting.
-- Denying access to public services from bots/proxies/ect.
+- Denying bots/proxies access to public services (made possible thanks to Luke at [getipintel](https://getipintel.com)
 
 IPv6 is not currently supported and may only be unconditionally dropped or accepted.
 
@@ -26,7 +26,8 @@ the purpose of security evaluation: assumed not exist at all.
 <br>
 
 In particular, ntfw's filtering functionality should (conservatively) be considered *best-effort* as by design there is no contractual
-guarentee of strictly correct behavior in this regard as to permit leeway in implementation for primarily performance reasons.[^1]
+guarentee of strictly correct behavior in this regard. This relaxation of requirements permits decisions made in favor of performance in
+critical areas.[^1]
 
 
 ### Package Contents
