@@ -9,13 +9,23 @@ IPv6 is not currently supported and may only be unconditionally dropped or accep
 <br>
 <br>
 
-### Overview
+## Overview
 
 ntfw classifies all network traffic arriving at your machine as either public or private. *Public* traffic is that which is destined
 to internet-facing services you provide such as web- and game servers, while *private* is implicitly defined as the inverse and
 is assumed to constitute your internal systems (e.g, RDP)
 
 Private traffic is subject to host-based authorization while public traffic is optionally subject to traffic policing.
+<br>
+
+### Important
+
+In general, a *firewall* is not a substitute for a secure system, rather it should be considered an auxillary first line of defense and for
+the purpose of security evaluation, assumed not to exist at all.
+<br>
+
+In particular, ntfw's filtering functionality should (conservatively) be considered *best-effort* as by design there is no contractual
+guarentee of strictly correct behavior in this regard as to permit leeway in implementation for primarily performance reasons.[^2]
 
 
 ### Package Contents
@@ -43,3 +53,4 @@ Private traffic is subject to host-based authorization while public traffic is o
 
 
 [^1]: This class of attack is mostly beyond the scope of any end-host solution and generally requires calling out to services such as CloudFlare.
+[^2]: In practice, the worst-case scenario is limited to a handful packets errorneously being classed as authorized under very circumstances.
