@@ -142,3 +142,15 @@ void spin_acquire2(u32* lock)
 		} while(*(volatile u32*) lock);
 	}
 }
+
+
+const char* ips(be32 ip4)
+{
+	static char tmp[4][32];
+	static u8 idx;
+
+	idx &= 3;
+	ipxs(tmp[idx], ip4);
+
+	return tmp[idx++];
+}

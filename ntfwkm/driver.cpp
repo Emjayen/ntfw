@@ -51,12 +51,16 @@ SLIST_HEADER FltModuleFreeList;
 NDIS_HANDLE FltDriverHandle;
 PDEVICE_OBJECT FltDeviceObject;
 NDIS_HANDLE FltDeviceHandle;
+NDIS_HANDLE NdisCfgHandle;
 
 // A big lock; serializes access for control operations (very infrequent)
 KSPIN_LOCK DriverLock;
 
 
 
+
+
+//NTSTATUS ReadConfigValue(const char* ValueName, )
 
 
 VOID SetModuleState(FLT_MODULE* Module, FILTER_STATE NewState)
@@ -89,6 +93,7 @@ NDIS_STATUS FilterAttach
 	NTSTATUS Status = NDIS_STATUS_SUCCESS;
 	NDIS_FILTER_ATTRIBUTES  FilterAttr;
 	FLT_MODULE* FilterModule;
+
 
 
 	UNREFERENCED_PARAMETER(NdisFilterHandle);
@@ -219,7 +224,15 @@ VOID FilterReceive
 		return;
 	}
 
-	// Indicate to ntfw that we're about to begin a batch.
+	// We must always be running at dispatch to prevent migration and/or preemption in the engine.
+	if(!(ReceiveFlags & NDIS_RECEIVE_FLAGS_DISPATCH_LEVEL))
+		PrevIrql = KeRaiseIrqlToDpcLevel();
+
+	// Indicate to ntfe that a batch is about to begin. This should be performed as early as possible
+	// to improve the effectiveness of overlapping of memory latency.
+	//
+	// N.B: It is crucial this is invoked only once we're at dispatch level.
+	//
 	ntfe_rx_prepare();
 
 	// Store AVX state.
@@ -227,15 +240,19 @@ VOID FilterReceive
 	{
 		// This shouldn't happen. Just transparently pass through to the next layer.
 		NdisFIndicateReceiveNetBufferLists(Context->FilterModuleHandle, NetBufferLists, PortNumber, NumberOfNetBufferLists, ReceiveFlags);
-		return;
+		goto restore_irql;
 	}
-
-	// We must always be running at dispatch to prevent migration and/or preemption in the engine.
-	if(!(ReceiveFlags & NDIS_RECEIVE_FLAGS_DISPATCH_LEVEL))
-		PrevIrql = KeRaiseIrqlToDpcLevel();
 	
 	// Process each packet in the batch, segregating them into two seperate lists depending
 	// on their fate (accept or drop)
+	//
+	// TODO: Investigate the performance ramifications of pipelining the processing into stages.
+	//       
+	//       Stage 1) Subdivide the batch into ~8 and perform NdisGetDataBuffer
+	//       Stage 2) Process up to the point within the engine where bucket prefetching begins.
+	//       Stage 3) Complete rx processing of batch; hopefully by which time the first bucket
+	//                has been brought into cache.
+	//
 	for(PNET_BUFFER_LIST nbl = NetBufferLists, Next; nbl; nbl = Next)
 	{
 		auto FrameLength = nbl->FirstNetBuffer->DataLength;
@@ -258,14 +275,14 @@ VOID FilterReceive
 		nbl->Next = NULL;
 	}
 
+	// Restore AVX state.
+	KeRestoreExtendedProcessorState(&SaveState);
+
+restore_irql:
 	// Restore IRQL if was modified by us.
 	if(!(ReceiveFlags & NDIS_RECEIVE_FLAGS_DISPATCH_LEVEL))
 		KeLowerIrql(PrevIrql);
 
-	// Restore AVX state.
-	KeRestoreExtendedProcessorState(&SaveState);
-
-	//LDBG("Batch done; accepted %u of %u", AcceptCount, NumberOfNetBufferLists);
 
 	// Release back the buffers for dropped packets.
 	if(NblDropHead)
@@ -278,7 +295,7 @@ VOID FilterReceive
 
 
 
-VOID FilterSendNetBufferLists
+VOID FilterSend
 (
 	NDIS_HANDLE         FilterModuleContext,
 	PNET_BUFFER_LIST    NetBufferLists,
@@ -390,6 +407,7 @@ NTSTATUS DriverEntry
 )
 {
 	NTSTATUS Status;
+	NDIS_CONFIGURATION_OBJECT CfgObj;
 	NDIS_FILTER_DRIVER_CHARACTERISTICS Desc;
 	UNICODE_STRING DevName;
 	UNICODE_STRING DevSymName;
@@ -408,7 +426,23 @@ NTSTATUS DriverEntry
 
 
 	// Firewall engine initialization
-	if(!ntfe_init(NULL, 0))
+
+	union
+	{
+		ntfe_config cfg;
+		byte dummy[sizeof(ntfe_config) + 256];
+	};
+
+	memzero(dummy, sizeof(dummy));
+	cfg.version = NTFE_CFG_VERSION;
+	cfg.length = sizeof(cfg) + sizeof(ntfe_rule);
+
+	cfg.rule_count = 1;
+	ntfe_rule* rl = (ntfe_rule*) cfg.ect;
+	rl->ether = ETH_P_ARP;
+
+
+	if(!ntfe_init(&cfg, sizeof(dummy)))
 	{
 		ntfe_cleanup();
 
@@ -438,6 +472,7 @@ NTSTATUS DriverEntry
 	Desc.PauseHandler = FilterPause;
 	Desc.RestartHandler = FilterRestart;
 	Desc.ReceiveNetBufferListsHandler = FilterReceive;
+	Desc.SendNetBufferListsHandler = FilterSend;
 
 	if((Status = NdisFRegisterFilterDriver(DriverObject, (NDIS_HANDLE) DriverObject, &Desc, &FltDriverHandle)) != NDIS_STATUS_SUCCESS)
 	{
@@ -446,6 +481,19 @@ NTSTATUS DriverEntry
 		goto done;
 	}
 
+	//CfgObj.Header.Type = NDIS_OBJECT_TYPE_CONFIGURATION_OBJECT;
+	//CfgObj.Header.Revision = NDIS_CONFIGURATION_OBJECT_REVISION_1;
+	//CfgObj.Header.Size = NDIS_SIZEOF_CONFIGURATION_OBJECT_REVISION_1;
+	//CfgObj.NdisHandle = FltDriverHandle;
+	//CfgObj.Flags = 0;
+
+	//if((Status = NdisOpenConfigurationEx(&CfgObj, &NdisCfgHandle)) != NDIS_STATUS_SUCCESS)
+	//{
+	//	LFATAL("Unable to open driver configuration: 0x%X", Status);
+	//	Status = STATUS_INTERNAL_ERROR;
+	//	goto done;
+	//}
+	
 	// Create our device object for usermode communication.
 	{
 		NdisInitUnicodeString(&DevName, NTDEV_NAME);
@@ -476,7 +524,7 @@ NTSTATUS DriverEntry
 		}
 	}
 
-	LOG("Driver successfully loaded.");
+	LOG("Driver successfully initialized.");
 
 done:
 	return Status;

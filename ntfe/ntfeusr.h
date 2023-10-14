@@ -19,31 +19,20 @@
 #define NTFE_MAX_RULES    128
 #define NTFE_MAX_USERS    32
 
-// HMAC (SHA3) key size for use in ntfp
-#define NTFE_HMAC_KEY_SZ  32 /* Bytes */
-
 // General
-#define NTFE_MAX_IDENT  32
+#define NTFP_PORT  5662 /* NTFP UDP port */
 
-// NTFP UDP port
-#define NTFP_PORT  5662
 
-// Public key size
-#define NTFE_PKEY_SZ  32
-
+// Users & auth
+#define NTFE_MAX_USERNAME  32
+#define NTFE_PKEY_SZ  32 /* Public key size, in bytes. */
+#define NTFE_PSHASH_SZ  32 /* Password hash size */
 
 
 //
 // Configuration image on-disk
 //
 #pragma pack(1)
-
-struct ntfe_user
-{
-	byte key[NTFE_HMAC_KEY_SZ];
-	char ident[NTFE_MAX_IDENT];
-	byte reserved[64];
-};
 
 struct ntfe_meter
 {
@@ -71,6 +60,7 @@ struct ntfe_rule
 	u8 byte_tb;
 	u8 packet_tb;
 	u8 syn_tb;
+	byte reserved[16];
 };
 
 
@@ -83,23 +73,22 @@ struct ntfe_pkey
 	};
 };
 
+
 struct ntfe_config
 {
 	u32 reserved; /* MBZ */
-	u16 version; /* 0 */
+	u16 version; /* NTFE_CFG_VERSION */
 	u16 length; /* Total size of this structure, in bytes. */
 	u64 create_time; /* NTFT timestamp when this configuration was authored. */
-	u32 unused[8]; /* MBZ */
 	ntfe_pkey pkey; /* Public key for authorized users. */
-	u32 pkey_twnd; /* Time window acceptable for keys, in msec. */
+	u32 unused[8]; /* MBZ */
 	u32 rule_seed; /* Seed used to generate rule-table by user. */
 	u32 rule_hashsz; /* Size of the rule table the user generated, in bits. */
 	u32 rule_count; /* Number of rule table entries. */
 	u32 meter_count; /* Number of token bucket descriptors. */
 	u32 host_count; /* Number of statically authorized addresses configured. */
  // ntfe_rule[rule_count];
- // ntfe_meter[tbd_count]
- // ntfe_user users[user_count] 
+ // ntfe_meter[meter_count]
  // ntfe_host static_hosts[static_count];
 	byte ect[];
 };
@@ -147,9 +136,16 @@ struct ntfp_msg
 
 
 
+//
+// N.B: The engine is only reentrant for the data-path; all other routines
+//      must be globally serialized before entering and are further required
+//      to be at <= IRQL_APC_LEVEL
+// 
+
+
 /*
  * ntfe_init
- *    Initialize engine.
+ *    Global engine initialization.
  *
  */
 bool ntfe_init(ntfe_config* cfg, u32 cfg_len);
@@ -157,15 +153,35 @@ bool ntfe_init(ntfe_config* cfg, u32 cfg_len);
 
 /*
  * ntfe_cleanup
- *    Cleanup engine.
+ *    Global engine cleanup.
  *
  */
 void ntfe_cleanup();
 
 
 /*
+ * ntfe_validate_configuration
+ *    Validate configuration. This ensures the provided configuration
+ *    is correctly formed such that it's accepted by ntfe_configure(); 
+ *    it does not verify that it makes sense.
+ * 
+ */
+bool ntfe_validate_configuration(ntfe_config* cfg, u32 cfg_len);
+
+
+/*
+ * ntfe_configure
+ *    Apply configuration. 
+ *
+ *    This will invalidate any currently authorized hosts.
+ *
+ */
+bool ntfe_configure(ntfe_config* cfg, u32 cfg_len);
+
+
+/*
  * ntfe_rx_prepare
- *    Hint that a batch of receive processing is about to commence.
+ *    Hint that a receive processing cycle is about to commence.
  *
  */
 void ntfe_rx_prepare();
@@ -173,7 +189,7 @@ void ntfe_rx_prepare();
 
 /*
  * ntfe_rx_prepare
- *    Hint that a batch of transmit processing is about to commence.
+ *    Hint that a transmit processing cycle is about to commence.
  *
  */
 void ntfe_tx_prepare();

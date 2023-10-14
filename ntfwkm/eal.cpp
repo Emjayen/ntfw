@@ -99,7 +99,7 @@ bool RegionFree(void* BaseAddress, u32 CommitSz)
 #ifdef DBG
 u8 LogLevel = 5;
 #else
-u8 LogLevel = 5;
+u8 LogLevel = 1;
 #endif
 
 void Log(u8 Level, const char* Format, ...)

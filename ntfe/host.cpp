@@ -46,8 +46,8 @@ s8 probe_bucket(htbucket* htb, be32 saddr)
 // Grow the host pool.
 void host_pool_grow()
 {
-	RegionCommit(gs.hpool.base + (gs.hpool.true_sz * sizeof(host_state)), HPOOL_GROW * sizeof(host_state));
-	gs.hpool.true_sz += HPOOL_GROW;
+	RegionCommit(((byte*) gs.hpool) + (gs.hp_true_sz * sizeof(host_state)), HPOOL_GROW * sizeof(host_state));
+	gs.hp_true_sz += HPOOL_GROW;
 }
 
 
@@ -58,7 +58,7 @@ u32 host_allocate()
 	
 	
 	// Trivial stack allocation of new entry. Note that 0 is reserved.
-	idx = _InterlockedIncrement((volatile long*) &gs.hpool.size);
+	idx = _InterlockedIncrement((volatile long*) &gs.hp_size);
 
 	// While the pool grows at the defined rate, growth occurs at half intervals. This
 	// is done to provide a buffer-zone to reduce the likelihood of synchronization
@@ -71,14 +71,14 @@ u32 host_allocate()
 
 	// Unlikely case where-in we have to wait for a previous core to complete the pool
 	// growth.
-	else if(idx >= gs.hpool.true_sz)
+	else if(idx >= gs.hp_true_sz)
 	{
-		cpu->sc.hpl_stall++;
+		cpu->sc.hpl_grow_stall++;
 
 		do
 		{
 			_mm_pause();
-		} while(idx >= *(volatile u32*) &gs.hpool.true_sz);
+		} while(idx >= *(volatile u32*) &gs.hp_true_sz);
 	}
 
 	return idx;
@@ -93,6 +93,15 @@ htbucket* host_fetch_bucket(be32 saddr)
 {
 	return &gs.host_tbl[inet_hashfn(saddr) & (HTBL_SIZE-1)];
 }
+
+
+// Fetch host state, which is the bulk portion of the value data in the host map.
+host_state* get_host_state(htbucket* htb, s8 hidx)
+{
+	// 'ptr' is always guarenteed to be valid even if not initialized.
+	return &gs.hpool[htb->ctrl[hidx].ptr];
+}
+
 
 s8 host_lookup(htbucket* htb, be32 saddr)
 {
@@ -109,11 +118,10 @@ s8 host_lookup(htbucket* htb, be32 saddr)
 	//
 	// Instances should be infrequent and limited to maybe a handful of packets. This is
 	// considered acceptable when weighed against the substanial performance degredation 
-	// that correct behaviour would require (ping-ponging the bucket line)
+	// that correct behaviour would require (exclusive ping-ponging the bucket line)
 	//
 	return probe_bucket(htb, saddr);
 }
-
 
 
 static s8 allocate(htbucket* htb, u16 tsec, u32 priority)
@@ -150,12 +158,13 @@ static s8 allocate(htbucket* htb, u16 tsec, u32 priority)
 
 		if(htb->ctrl[idx].pri > priority)
 			return -1;
+
+		// Clear any existing state.
+		memzero(get_host_state(htb, idx), sizeof(host_state));
 	}
 
 	return idx;
 }
-
-
 
 
 s8 host_insert(htbucket* htb, be32 saddr)
@@ -268,8 +277,8 @@ s8 host_insert_authorized(htbucket* htb, be32 saddr, u32 priority)
 
 	// TODO:
 	// Authorized hosts don't require state since it only serves to provide traffic-policing
-	// of which they're exempt from. Therefor we would be able to return this host's back
-	// to the pool if it were already allocated one.
+	// of which they're exempt from. Therefor we would be able to return this host's allocation
+	// back to the pool if it were already allocated one.
 
 	// Release the bucket lock.
 	spin_release(&htb->lock, HTB_LOCK_BIT);
@@ -279,10 +288,23 @@ s8 host_insert_authorized(htbucket* htb, be32 saddr, u32 priority)
 }
 
 
-host_state* get_host_state(htbucket* htb, s8 hidx)
+// This is only called when when the driver is disconnected from the datapath.
+void host_clear_statically_authorized()
 {
-	return &gs.hpool.pool[htb->ctrl[hidx].ptr];
+	for(int i = 0; i < HTBL_SIZE; i++)
+	{
+		htbucket& htb = gs.host_tbl[i];
+
+		for(int k = 0; k < HTBL_BKT_SZ; k++)
+		{
+			if(htb.ctrl[k].pri == HOST_PRI_STATIC)
+			{
+				htb.saddr.m256i_u32[k] = 0;
+				htb.exhausted = false;
+
+				memzero(get_host_state(&htb, k), sizeof(host_state));
+			}
+		}
+	}
 }
-
-
 

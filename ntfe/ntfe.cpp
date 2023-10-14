@@ -25,7 +25,7 @@ cpu_local* current_cpu_local()
 	// which is implemented as an inlined segment offset address 
 	// calculation and is therefor only slightly worse than a direct
 	// address calculation.
-	return &gs._cpu_local[QueryCurrentProcessorNumber()];
+	return &gs.cpuls[QueryCurrentProcessorNumber()];
 }
 
 
@@ -105,43 +105,43 @@ static void ntfp_rx_process(net_frame* frame, u16 len)
 	// Verify magic; elides the need for expensive processing ahead. This
 	// access is legal as we're guarenteed atleast 64 bytes of frame
 	// data. 
-	if(msg->hdr.magic != gs.auth.pkey.magic)
-		return;
+	//if(msg->hdr.magic != gs.auth.pkey.magic)
+	//	return;
 
-	// Pull link header & validate network.
-	if((len -= sizeof(eth_hdr)) < sizeof(ip_hdr) || len < ntohs(frame->ip.len))
-		return;
+	//// Pull link header & validate network.
+	//if((len -= sizeof(eth_hdr)) < sizeof(ip_hdr) || len < ntohs(frame->ip.len))
+	//	return;
 
-	// May truncate due to link padding.
-	len = ntohs(frame->ip.len);
+	//// May truncate due to link padding.
+	//len = ntohs(frame->ip.len);
 
-	// Pull network header & validate transport.
-	if((len -= sizeof(ip_hdr)) < sizeof(udp_hdr) || len < ntohs(frame->udp.len))
-		return;
+	//// Pull network header & validate transport.
+	//if((len -= sizeof(ip_hdr)) < sizeof(udp_hdr) || len < ntohs(frame->udp.len))
+	//	return;
 
-	// Pull transport header & validate application.
-	if((len -= sizeof(udp_hdr)) < sizeof(ntfp_hdr) || len < msg->len)
-		return;
-	
-	// Verify it's within the left and right edges of the acceptability window.
-	const auto t = QuerySystemTime();
+	//// Pull transport header & validate application.
+	//if((len -= sizeof(udp_hdr)) < sizeof(ntfp_hdr) || len < msg->len)
+	//	return;
+	//
+	//// Verify it's within the left and right edges of the acceptability window.
+	//const auto t = QuerySystemTime();
 
-	if(msg->timestamp < t - (gs.auth.twnd/2) || msg->timestamp > t + (gs.auth.twnd/2))
-		return;
+	//if(msg->timestamp < t - (gs.auth.twnd/2) || msg->timestamp > t + (gs.auth.twnd/2))
+	//	return;
 
-	// Verify the signature.
-	if(!ed25519_verify(msg->hdr.signature, msg->payload, msg->len, gs.auth.pkey.key))
-		return;
+	//// Verify the signature.
+	//if(!ed25519_verify(msg->hdr.signature, msg->payload, msg->len, gs.auth.pkey.key))
+	//	return;
 
-	// This would be very wrong.
-	if(msg->auth.addr == 0)
-		return;
+	//// This would be very wrong.
+	//if(msg->auth.addr == 0)
+	//	return;
 
-	// Passed all checks; insert as authorized host.
-	if(host_insert_authorized(host_fetch_bucket(msg->auth.addr), msg->auth.addr, HOST_PRI_DYNAUTH) < 0)
-	{
-		// TODO: Should log this.
-	}
+	//// Passed all checks; insert as authorized host.
+	//if(host_insert_authorized(host_fetch_bucket(msg->auth.addr), msg->auth.addr, HOST_PRI_DYNAUTH) < 0)
+	//{
+	//	// TODO: Should log this.
+	//}
 }
 
 
@@ -155,12 +155,14 @@ bool ntfe_rx(void* data, u16 len)
 	u32 mask;
 	s8 hidx;
 	
-
+	
 
 	// Extract the fields that constitute the flow signature.
 	sig.ether = (u8) (frame->eth.proto >> 7);
 	sig.proto = frame->ip.proto;
 	sig.dport = frame->tcp.dport;
+
+	LDBG("rx: sig.ether=%u sig.proto=%u sig.dport=%u (frame->ether:0x%X frame->proto:%u)", sig.ether, sig.proto, sig.dport, bswap16(frame->eth.proto), frame->ip.proto);
 
 	// For non-IPv4 traffic the rules are simply inclusive for accept.
 	if(frame->eth.proto != htons(ETH_P_IP))
@@ -169,6 +171,9 @@ bool ntfe_rx(void* data, u16 len)
 
 		if(!rule_lookup(&sig))
 			goto drop;
+
+		else
+			goto accept;
 	}
 
 	//
@@ -207,7 +212,7 @@ bool ntfe_rx(void* data, u16 len)
 	// bringing in the containing bucket. Unfortunately we're still unlikely to hide
 	// much of the latency.
 	htb = host_fetch_bucket(saddr);
-	//prefetch(htb);
+	prefetch(htb);
 
 	if(frame->ip.frag_off & htons(IP_MF | IP_OFFSET))
 	{
@@ -264,8 +269,8 @@ bool ntfe_rx(void* data, u16 len)
 	//   - It may or may not have a host record in the table.
 	
 	// If the user hasn't configured traffic policing then the traffic is unconditionally accepted.
-	if(!gs.hpool.base)
-		return true;
+	if(!gs.hpool)
+		goto accept;
 
 	// If traffic policing is enabled however, we need to first create a new host entry
 	// in the case it doesn't already exist.
@@ -301,7 +306,7 @@ void ntfe_tx(void* data, u16 len)
 	u32 mask;
 	s8 hidx;
 
-
+	LDBG("ntfe_tx(): %s", ips(frame->ip.daddr));
 	// Extract the fields that constitute the flow signature.
 	sig.ether = (u8) (frame->eth.proto >> 7);
 	sig.proto = frame->ip.proto;
@@ -344,6 +349,10 @@ void ntfe_tx(void* data, u16 len)
 	//
 	if((hidx = host_lookup(htb, daddr)) < 0 || htb->ctrl[hidx].pri < HOST_PRI_OUTAUTH)
 		host_insert_authorized(htb, daddr, HOST_PRI_OUTAUTH);
+
+	char tmp[32];
+	ipxs(tmp, daddr);
+	LDBG("Authorized dynamic outgoing: %s (hidx:%d)", tmp, hidx);
 }
 
 
@@ -357,8 +366,8 @@ void ntfe_rx_prepare()
 	
 	// Refresh the high-precision clock timestamp cache of the current 
 	// processor with a new sample.
-	cpu->hpc = HPC();
-	cpu->ts_msec = (cpu->hpc * 1000) / gs.hpc_hz;
+	cpu->ts_hpc = HPC();
+	cpu->ts_msec = (cpu->ts_hpc * 1000) / gs.hpc_hz;
 }
 
 
@@ -368,7 +377,86 @@ void ntfe_tx_prepare()
 }
 
 
-static bool load_configuration(ntfe_config* cfg, u32 cfg_len)
+bool ntfe_validate_configuration(ntfe_config* cfg, u32 cfg_len)
+{
+	union
+	{
+		byte* data;
+		ntfe_rule* rl;
+		ntfe_meter* meter;
+		ntfe_host* host;
+	}; data = cfg->ect;
+
+
+	// Basic bounds check.
+	if(cfg_len < sizeof(ntfe_config) || cfg->length > cfg_len)
+	{
+		LERR("[cfg] Insufficient load data (%u)", cfg_len);
+		return false;
+	}
+
+	if(cfg->length < sizeof(ntfe_config) +
+		(cfg->rule_count * sizeof(ntfe_rule)) +
+		(cfg->meter_count * sizeof(ntfe_meter)) +
+		(cfg->host_count * sizeof(ntfe_host)))
+	{
+		LERR("[cfg] Incorrect data length (%u)", cfg->length);
+		return false;
+	}
+
+	// Check reserved fields.
+	if(cfg->reserved)
+	{
+		LERR("[cfg] Corrupt reserved field.");
+		return false;
+	}
+
+	// Version check
+	if(cfg->version != NTFE_CFG_VERSION)
+	{
+		LERR("[cfg] Version mismatch (%u != %u)", cfg->version, NTFE_CFG_VERSION);
+		return false;
+	}
+
+	// Check rules
+	if(cfg->rule_count > MAX_RULES || (1<<cfg->rule_hashsz) > MAX_RULES)
+	{
+		LERR("[cfg] Bad rules section; rule_count:%u rule_hashsz:%u (max:%u)", cfg->rule_count, cfg->rule_hashsz, MAX_RULES);
+		return false;
+	}
+
+	// Verify there's no rule table collisions.
+	for(uint i = 0; i < cfg->rule_count; i++)
+	{
+		ntfe_rule& src = *rl++;
+		flowsig fs;
+		u16 h;
+
+		fs.ether = (u8) (htons(src.ether) >> 7);
+		fs.proto = src.proto;
+		fs.dport = htons(src.dport);
+
+		rule& dst = gs.rules[(h = rule_hashfn(&fs, cfg->rule_seed))];
+
+		if(dst.fsig.data != 0)
+		{
+			LERR("[cfg] Rule hashtable collision when inserting [0x%X, 0x%X, %u] with seed 0x%X", src.ether, src.proto, src.dport, cfg->rule_seed);
+			return false;
+		}
+	}
+
+	// Check meters
+	if(cfg->meter_count > MAX_METERS)
+	{
+		LERR("[cfg] Unsupported meter count: %u (max:%u)", cfg->meter_count, MAX_METERS);
+		return false;
+	}
+
+	return true;
+}
+
+
+bool ntfe_configure(ntfe_config* cfg, u32 cfg_len)
 {
 	union
 	{
@@ -376,32 +464,26 @@ static bool load_configuration(ntfe_config* cfg, u32 cfg_len)
 		ntfe_meter* meter;
 		ntfe_rule* rl;
 		ntfe_host* host;
-		ntfe_user* user;
 	}; data = cfg->ect;
 
 
-	// Basic bounds check.
-	if(cfg->length > cfg_len || cfg_len < sizeof(ntfe_config))
+	// This -should- have already been done, but we're doing it again to be sure.
+	if(!ntfe_validate_configuration(cfg, cfg_len))
+	{
+		LERR("Attempted to apply malformed configuration.");
 		return false;
+	}
 
-	if(cfg->length > sizeof(ntfe_config) +
-		(cfg->rule_count * sizeof(ntfe_rule)) +
-		(cfg->meter_count * sizeof(ntfe_meter)) +
-		(cfg->host_count * sizeof(ntfe_host)))
-		return false;
+	// Remember to clean any zero-initialized assumptions as this may be a restart.
+	memzero(gs.rules, sizeof(gs.rules));
+	memzero(gs.tbdesc, sizeof(gs.tbdesc));
+	memzero(&gs.pkey, sizeof(gs.pkey));
+	memzero(gs.cpuls, sizeof(gs.cpuls));
 
-	// Check reserved fields.
-	if(cfg->reserved)
-		return false;
+	// Invalidate all hosts currently marked as statically authorized.
+	host_clear_statically_authorized();
 
-	// Version check
-	if(cfg->version != NTFE_CFG_VERSION)
-		return false;
-
-	// Load rules
-	if(cfg->rule_count > MAX_RULES || (1<<cfg->rule_hashsz) > MAX_RULES)
-		return false;
-
+	// Load rules.
 	gs.rule_hashsz = cfg->rule_hashsz;
 	gs.rule_seed = cfg->rule_seed;
 
@@ -411,14 +493,11 @@ static bool load_configuration(ntfe_config* cfg, u32 cfg_len)
 		flowsig fs;
 		u16 h;
 
-		fs.ether = (u8) (src.ether >> 7);
+		fs.ether = (u8) (htons(src.ether) >> 7);
 		fs.proto = src.proto;
-		fs.dport = src.dport;
+		fs.dport = htons(src.dport);
 
 		rule& dst = gs.rules[(h = rule_hashfn(&fs, cfg->rule_seed))];
-
-		if(dst.fsig.data != 0)
-			return false;
 
 		dst.fsig.data = fs.data;
 		dst.in_byte_scale = src.byte_scale;
@@ -429,11 +508,7 @@ static bool load_configuration(ntfe_config* cfg, u32 cfg_len)
 		dst.in_syn_tb = src.syn_tb;
 	}
 
-
 	// Load meters
-	if(cfg->meter_count > MAX_METERS)
-		return false;
-
 	for(uint i = 0; i < cfg->meter_count; i++)
 	{
 		ntfe_meter& src = *meter++;
@@ -450,7 +525,10 @@ static bool load_configuration(ntfe_config* cfg, u32 cfg_len)
 		ntfe_host& src = *host++;
 
 		if(host_insert_authorized(host_fetch_bucket(src.saddr), src.saddr, HOST_PRI_STATIC) < 0)
+		{
+			LWARN("[cfg] Failed to insert statically-authorized host (0x%X)", src.saddr);
 			return false;
+		}
 	}
 
 	return true;
@@ -464,16 +542,11 @@ bool ntfe_init(ntfe_config* cfg, u32 cfg_len)
 	gs.hpc_hz = HPCHz();
 
 	// Allocate the host-state pool.
-	if(!(gs.hpool.base = (byte*) RegionAllocate(HPOOL_SIZE * sizeof(host_state))))
+	if(!(gs.hpool = (host_state*) RegionAllocate(HPOOL_SIZE * sizeof(host_state))))
 		return false;
 
 	// Grow by an initial growth amount.
 	host_pool_grow();
-
-	// Load configuration. Note that we must do this -after- the pool allocation, as 
-	// it will insert any statically authorized hosts.
-	if(!load_configuration(cfg, cfg_len))
-		return false;
 
 	return true;
 }
@@ -482,9 +555,9 @@ bool ntfe_init(ntfe_config* cfg, u32 cfg_len)
 void ntfe_cleanup()
 {
 	// Release the host-state pool.
-	if(gs.hpool.base)
-		RegionFree(gs.hpool.base, gs.hpool.true_sz  * sizeof(host_state));
+	if(gs.hpool)
+		RegionFree(gs.hpool, gs.hp_true_sz  * sizeof(host_state));
 
-	gs.hpool.base = NULL;
+	gs.hpool = NULL;
 }
 

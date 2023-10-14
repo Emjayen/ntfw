@@ -68,7 +68,7 @@ INT_PTR CALLBACK DlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             } const Tabs[] =
             {
                 //{ "Status", IDD_STATUS, DlgProcX },
-                //{ "General", IDD_BASIC, DlgProcX},
+                { "Users", IDD_USERS, OnUsersDlgMsg },
                 { "Rules", IDD_RULES, OnRulesDlgMsg },
             };
 
@@ -101,11 +101,8 @@ INT_PTR CALLBACK DlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                     rcDisplay.top -= rcWindow.top;
                 }
 
-                SetWindowPos((HWND) tci.lParam, NULL, rcDisplay.left, rcDisplay.top, szDisplay.cx, szDisplay.cy, NULL);
+                SetWindowPos((HWND) tci.lParam, NULL, rcDisplay.left, rcDisplay.top, szDisplay.cx, szDisplay.cy, i ? NULL : SWP_SHOWWINDOW);
             }
-
-            ShowWindow(GetDlgItem(hwnd, Tabs[0].DlgResId), SW_SHOW);
-
 
             return true;
         }
@@ -148,9 +145,23 @@ INT_PTR CALLBACK DlgProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 
+
+bool Startup()
+{
+    INITCOMMONCONTROLSEX ic = { sizeof(ic), ICC_STANDARD_CLASSES | ICC_LISTVIEW_CLASSES };
+
+    if(InitCommonControlsEx(&ic))
+    {
+        return false;
+    }
+
+    return true;
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR lpCmdLine, int nCmdShow)
 {
 
+   
 
 
     hwndMain = CreateDialog(hInstance, MAKEINTRESOURCE(IDD_MAIN), NULL, &DlgProc);

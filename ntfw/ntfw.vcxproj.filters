@@ -13,6 +13,8 @@
     <ClCompile Include="ntfw.cpp" />
     <ClCompile Include="rules.cpp" />
     <ClCompile Include="helper.cpp" />
+    <ClCompile Include="basic.cpp" />
+    <ClCompile Include="dlgusers.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="manifest.txt" />

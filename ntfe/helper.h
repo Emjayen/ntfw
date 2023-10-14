@@ -15,6 +15,7 @@
   * 
   */ 
 u8 ipxs(char* pd, be32 ip4);
+const char* ips(be32 ip4);
 
 
 /*

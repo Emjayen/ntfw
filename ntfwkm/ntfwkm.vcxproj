@@ -108,6 +108,9 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <SDLCheck>false</SDLCheck>
+      <ControlFlowGuard>Guard</ControlFlowGuard>
+      <GuardSignedReturns>
+      </GuardSignedReturns>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);..;.;</AdditionalIncludeDirectories>
@@ -139,7 +142,8 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <ControlFlowGuard>false</ControlFlowGuard>
       <IntelJCCErratum>true</IntelJCCErratum>
-      <GuardSignedReturns>false</GuardSignedReturns>
+      <GuardSignedReturns>
+      </GuardSignedReturns>
     </ClCompile>
     <ResourceCompile>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);..;.;</AdditionalIncludeDirectories>

@@ -4,6 +4,7 @@
  */
 #pragma once
 #include <intrin.h>
+#include <memory.h>
 #pragma warning(disable:4200) /* Zero-sized arrays */
 
 
@@ -55,6 +56,7 @@ typedef u16 be16;
 #define prefetcht1(addr) _mm_prefetch((const char*) addr, _MM_HINT_T1)
 #define prefetcht2(addr) _mm_prefetch((const char*) addr, _MM_HINT_T2)
 #define prefetchw(addr) _m_prefetchw((const volatile void*) addr)
+
 
 // Usual network endianness things.
 #define htons(v) bswap16(v)

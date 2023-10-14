@@ -97,12 +97,6 @@ DWORD WINAPI ThreadEntry(DWORD ThreadId)
 	frame.ip.ihl = IP_IHL_MIN;
 	frame.ip.saddr = 0;
 	frame.ip.proto = 1;
-
-	gs.rules[0].fsig.ether = htons(ETH_P_IP)>>7;
-	gs.rules[0].fsig.proto = 1;
-	gs.rules[0].in_byte_scale = 10;
-	gs.rules[0].in_packet_scale = 1;
-
 	
 	u32* src_addr_list = rand_addr[ThreadId];
 	
@@ -143,10 +137,23 @@ DWORD WINAPI ThreadEntry(DWORD ThreadId)
 
 int main()
 {
+	union
+	{
+		ntfe_config cfg;
+		byte dummy[sizeof(ntfe_config) + 256];
+	};
+
+	memzero(dummy, sizeof(dummy));
+	cfg.version = NTFE_CFG_VERSION;
+	cfg.length = sizeof(cfg) + sizeof(ntfe_rule);
+
+	cfg.rule_count = 1;
+	ntfe_rule* rl = (ntfe_rule*) cfg.ect;
+	rl->ether = ETH_P_ARP;
 
 
-	//ntfe_init();
 
+	ntfe_init(&cfg, sizeof(dummy));
 
 	SetProcessWorkingSetSize(GetCurrentProcess(), HPOOL_SIZE * 128, HPOOL_SIZE * 150);
 

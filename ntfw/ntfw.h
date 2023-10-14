@@ -12,7 +12,8 @@
 
 
 INT_PTR CALLBACK OnRulesDlgMsg(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
-
+INT_PTR CALLBACK OnBasicDlgMsg(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+INT_PTR CALLBACK OnUsersDlgMsg(HWND hwnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 
 
 void Log(const char* pFormat, ...);
