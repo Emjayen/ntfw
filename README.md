@@ -43,7 +43,7 @@ Each user is defined by a *username*, *password* and/or a *public key* depending
 - NTFP:
   A simple UDP-based protocol that uses a digital signature to authenticate authorization requests.
     - &#128504; Does not generate any network response except to authenticated clients.
-    - &#128504; No expensive processing; performed in-kernel; capable of ignoring unauthorized requests with a single 64-bit comparison.
+    - &#128504; No expensive processing; performed in-kernel; ignores unauthorized requests with a single 64-bit comparison.
     - &#128504; Reliably available; cannot be interfered with by other firewall software, ect.
     - &#10799; Requires the additional step of key generation.
     - &#10799; Clients must run specialized software (ntfwd)
