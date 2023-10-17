@@ -13,13 +13,27 @@ IPv6 is not currently supported and may only be unconditionally dropped or accep
 ## Overview
 
 ntfw classifies all network traffic arriving at your machine as either public or private. *Public* traffic is that which is destined
-to internet-facing services you provide such as web- and game servers, while *private* is implicitly defined as the inverse and
-is assumed to constitute your internal systems (e.g, RDP)
+to internet-facing services you provide such as web- and game servers, while *private* is the inherent inverse and is assumed to 
+constitute your internal systems (e.g, RDP)
 
 Private traffic is subject to host-based authorization while public traffic is optionally subject to traffic policing.
 <br>
 
 ## Configuration
+
+### Rules
+
+*Rules* define what consistutes public traffic; any traffic not matching these rules is considered private traffic.
+
+Each rule can match traffic based on one of the following criteria:
+
+- L3 protocol, such as ARP, IPv6, ect
+- L4 protocol, such as IGMP, ICMP, ect
+- L4 transport and port number: TCP, UDP and LDP.
+
+For each rule you can optionally also define the costs for each packet and the meter which each individual quantity is charged against. Specifying
+zero for any of these fields will have the effect of disabling it. See the *Traffic Policing* section below for more details.
+
 
 ### Users
 
