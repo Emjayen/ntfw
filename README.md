@@ -16,7 +16,8 @@ ntfw classifies all network traffic arriving at your machine as either public or
 to internet-facing services you provide such as web- and game servers, while *private* is the inherent inverse and is assumed to 
 constitute your internal systems (e.g, RDP)
 
-Private traffic is subject to host-based authorization while public traffic is optionally subject to traffic policing.
+Private traffic is subject to host-based authorization while public traffic is optionally subject to traffic policing. In other words, public traffic
+is always accepted, while private traffic is always dropped (unless the originating IPv4 address is authorized)
 <br>
 
 ## Configuration
