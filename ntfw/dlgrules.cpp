@@ -267,8 +267,11 @@ bool RulesDownload(ntfe_config* pCfg)
         dst->syn_tb = src.SynMeter;
 
         pCfg->rule_count++;
+        pCfg->length += sizeof(ntfe_rule);
         dst++;
     }
+
+    return true;
 }
 
 
@@ -351,30 +354,7 @@ INT_PTR CALLBACK OnRulesDlgMsg(HWND hwnd, UINT message, WPARAM wParam, LPARAM lP
 
             return true;
         } break;
-
-
-        case WM_COMMAND:
-        {
-            
-
-            if(LOWORD(wParam) == IDC_TEST)
-            {
-                static union
-                {
-                    byte tmp[0x1000];
-                    ntfe_config cfg;
-                };
-
-                RulesDownload(&cfg);
-
-                RulesUpload(&cfg);
-            }
-        }
-
-
     }
-
-
 
     return false;
 }

@@ -6,14 +6,17 @@
 #define IDD_DIALOG1                     101
 #define IDD_DIALOG2                     103
 #define IDD_MAIN                        103
-#define IDD_BASIC                       105
 #define IDD_USERS                       105
+#define IDD_DIALOG3                     107
+#define IDD_BASIC                       107
 #define IDC_TEST                        1001
 #define IDC_USERLV                      1002
-#define IDC_CHECK1                      1003
 #define IDC_BUTTON1                     1005
 #define IDC_BUTTON2                     1006
 #define IDC_BUTTON3                     1007
+#define IDC_CHECK1                      1008
+#define IDC_AUTHOUT                     1008
+#define IDC_SAVE                        1009
 #define IDC_COMBO1                      5000
 #define IDC_COMBO2                      5001
 #define IDC_COMBO3                      5002
@@ -102,9 +105,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        107
+#define _APS_NEXT_RESOURCE_VALUE        109
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1008
+#define _APS_NEXT_CONTROL_VALUE         1010
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

@@ -34,6 +34,8 @@ typedef size_t uiptr;
 // Endian qualified types.
 typedef u32 be32;
 typedef u16 be16;
+typedef u32 le32;
+typedef u16 le16;
 
 // Endianness
 #define bswap16(x) _byteswap_ushort(x)
@@ -57,6 +59,13 @@ typedef u16 be16;
 #define prefetcht2(addr) _mm_prefetch((const char*) addr, _MM_HINT_T2)
 #define prefetchw(addr) _m_prefetchw((const volatile void*) addr)
 
+// Bitscan
+static inline u32 _bsr(u32 mask)
+{
+	unsigned long idx;
+	_BitScanReverse(&idx, mask);
+	return (u32) idx;
+}
 
 // Usual network endianness things.
 #define htons(v) bswap16(v)

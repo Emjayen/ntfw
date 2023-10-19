@@ -142,7 +142,7 @@ static s8 allocate(htbucket* htb, u16 tsec, u32 priority)
 	{
 		// Our eviction policy is simple: evict the oldest entry (FIFO) that is <= the priority class
 		// of the new entry.
-		u16 top = ~0;
+		u16 top = u16(~0);
 
 		// TODO: SIMD maybe.
 		for(s8 i = 0; i < 8; i++)
@@ -295,7 +295,7 @@ void host_clear_statically_authorized()
 	{
 		htbucket& htb = gs.host_tbl[i];
 
-		for(int k = 0; k < HTBL_BKT_SZ; k++)
+		for(s8 k = 0; k < HTBL_BKT_SZ; k++)
 		{
 			if(htb.ctrl[k].pri == HOST_PRI_STATIC)
 			{

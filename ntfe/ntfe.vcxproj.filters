@@ -27,6 +27,15 @@
     <ClInclude Include="ed25519\sha512.h">
       <Filter>ed25519</Filter>
     </ClInclude>
+    <ClInclude Include="xxhash\xxh_x86dispatch.h">
+      <Filter>xxh</Filter>
+    </ClInclude>
+    <ClInclude Include="xxhash\xxh3.h">
+      <Filter>xxh</Filter>
+    </ClInclude>
+    <ClInclude Include="xxhash\xxhash.h">
+      <Filter>xxh</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="eal.cpp" />
@@ -52,10 +61,20 @@
     <ClCompile Include="ed25519\verify.c">
       <Filter>ed25519</Filter>
     </ClCompile>
+    <ClCompile Include="ntfeusr.cpp" />
+    <ClCompile Include="xxhash\xxh_x86dispatch.c">
+      <Filter>xxh</Filter>
+    </ClCompile>
+    <ClCompile Include="xxhash\xxhash.c">
+      <Filter>xxh</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ed25519">
       <UniqueIdentifier>{c7fa8acd-28bb-400b-86d2-f2feee73248f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="xxh">
+      <UniqueIdentifier>{6db76ee7-cb11-45e9-a6a1-93f9d0a74047}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

@@ -160,11 +160,13 @@
     <ResourceCompile Include="res.rc" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="basic.cpp" />
+    <ClCompile Include="..\ntfe\ntfeusr.cpp" />
+    <ClCompile Include="dlgbasic.cpp" />
     <ClCompile Include="dlgusers.cpp" />
     <ClCompile Include="helper.cpp" />
     <ClCompile Include="ntfw.cpp" />
-    <ClCompile Include="rules.cpp" />
+    <ClCompile Include="dlgrules.cpp" />
+    <ClCompile Include="phash.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="manifest.txt" />

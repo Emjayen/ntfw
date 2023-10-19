@@ -119,6 +119,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <AdditionalOptions>/D TEST_VAR=" $(OutDir.Replace('\', '\\')) " %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -156,6 +157,9 @@
     <ClInclude Include="net.h" />
     <ClInclude Include="ntfe.h" />
     <ClInclude Include="ntfeusr.h" />
+    <ClInclude Include="xxhash\xxh3.h" />
+    <ClInclude Include="xxhash\xxhash.h" />
+    <ClInclude Include="xxhash\xxh_x86dispatch.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="eal.cpp" />
@@ -168,7 +172,13 @@
     <ClCompile Include="helper.cpp" />
     <ClCompile Include="host.cpp" />
     <ClCompile Include="ntfe.cpp" />
+    <ClCompile Include="ntfeusr.cpp" />
     <ClCompile Include="test.cpp" />
+    <ClCompile Include="xxhash\xxhash.c" />
+    <ClCompile Include="xxhash\xxh_x86dispatch.c">
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotSet</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotSet</EnableEnhancedInstructionSet>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ed25519\license.txt" />

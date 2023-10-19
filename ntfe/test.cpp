@@ -4,7 +4,7 @@
 #include <Windows.h>
 #include <stdio.h>
 #include <stdint.h>
-
+#include "xxhash/xxhash.h"
 
 
 bool EnablePrivilege(LPCWSTR lpPrivilegeName);
@@ -93,7 +93,7 @@ DWORD WINAPI ThreadEntry(DWORD ThreadId)
 
 	net_frame frame = {};
 
-	frame.eth.proto = htons(ETH_P_IP);
+	frame.eth.proto = htons(ETH_P_ARP);
 	frame.ip.ihl = IP_IHL_MIN;
 	frame.ip.saddr = 0;
 	frame.ip.proto = 1;
@@ -135,25 +135,159 @@ DWORD WINAPI ThreadEntry(DWORD ThreadId)
 
 
 
+__declspec(noinline) u32 real_xxh(u32 data, u32 seed)
+{
+	return XXH32(&data, sizeof(data), seed);
+}
+
+
+/*
+* 
+* edx=seed
+* ecx=data
+
+imul        eax,ecx,3D4D51C3h
+add         edx,165667B5h
+sub         edx,eax
+rol         edx,11h
+imul        ecx,edx,27D4EB2Fh
+mov         eax,ecx
+shr         eax,0Fh
+xor         eax,ecx
+imul        ecx,eax,85EBCA77h
+mov         eax,ecx
+shr         eax,0Dh
+xor         eax,ecx
+imul        ecx,eax,0C2B2AE3Dh
+mov         eax,ecx
+shr         eax,10h
+xor         eax,ecx
+}
+00007FF7CB9B2288  ret
+*/
+
+
+/*
+	u32 r1 = ecx * 0x3D4D51C3;
+	u32 r2 = edx + 0x165667B5;
+	u32 r3 = r2 - r1;
+	u32 r4 = _rotl(r3, 17) * 0x27D4EB2F;
+	r4 ^= (r4 >> 15);
+	u32 r5 = r4 * 0x85EBCA77;
+	r5 ^= (r5 >> 13);
+	u32 r6 = r5 * 0x0C2B2AE3D;
+	r6 ^= (r6 >> 16);
+*/
+
+__declspec(noinline) u32 __vectorcall emu_xxh(u32 in, u32 seed)
+{
+	u32 a = _rotl((seed + 0x165667B5) - (in * 0x3D4D51C3), 17) * 0x27D4EB2F;
+	u32 b = (a ^ (a >> 15)) * 0x85EBCA77;
+	u32 c = (b ^ (b >> 13)) * 0x0C2B2AE3D;
+
+	return c ^ (c >> 16);
+}
+
+
 int main()
 {
+	struct
+	{
+		le16 ether;
+		u8 proto;
+		le16 port;
+	} keys[] =
+	{
+		{ ETH_P_IP, IP_P_TCP, 80 },
+		{ ETH_P_IP, IP_P_TCP, 4000 },
+		{ ETH_P_IP, IP_P_TCP, 443 },
+		{ ETH_P_IP, IP_P_TCP, 3389 },
+		{ ETH_P_IP, IP_P_TCP, 34 },
+		{ ETH_P_IP, IP_P_TCP, 22 },
+		{ ETH_P_IP, IP_P_UDP, 880 },
+		{ ETH_P_ARP, 0, 0 },
+	};
+
+
+
+
+
+
+	//printf("\n%X", x);
+
+
+	u64 rand_state[2];
+
+	xoro_seed(GetTickCount64(), rand_state);
+
+
+
+	const auto TBL_SZ = 8;
+
+	static u32 table[TBL_SZ];
+
+	u32 best = ~0;
+
+	for(;;)
+	{
+		u32 collisions = 0;
+		u32 magic = xoro_rand(rand_state);
+		memzero(table, sizeof(table));
+
+		for(int i = 0; i < ARRAYSIZE(keys); i++)
+		{
+			auto h = ntfe_rule_hashfn(magic, keys[i].ether, keys[i].port, keys[i].proto);
+
+			if((table[h & (TBL_SZ-1)] += 1) > 1)
+				collisions++;
+		}
+
+		//printf("\nDone; collisions: %u", collisions);
+
+		if(collisions < best)
+		{
+			best = collisions;
+			printf("\nNew best: %u", best);
+		}
+
+		if(!collisions)
+			break;
+	}
+
+
+	int y;
+	y = 1;
+
+
+
+
+
+
+
+
+
+
+
+
+
 	union
 	{
 		ntfe_config cfg;
-		byte dummy[sizeof(ntfe_config) + 256];
+		byte dummy[0x8000];
 	};
 
+
 	memzero(dummy, sizeof(dummy));
-	cfg.version = NTFE_CFG_VERSION;
-	cfg.length = sizeof(cfg) + sizeof(ntfe_rule);
-
-	cfg.rule_count = 1;
-	ntfe_rule* rl = (ntfe_rule*) cfg.ect;
-	rl->ether = ETH_P_ARP;
-
+	HANDLE hFile = CreateFileA("Z:\\test.ntfc", GENERIC_ALL, NULL, NULL, OPEN_EXISTING, NULL, NULL);
+	DWORD Result;
+	ReadFile(hFile, dummy, sizeof(dummy), &Result, NULL);
+	if(!Result)
+		DebugBreak();
 
 
-	ntfe_init(&cfg, sizeof(dummy));
+	ntfe_init();
+	ntfe_configure(&cfg, sizeof(dummy));
+
 
 	SetProcessWorkingSetSize(GetCurrentProcess(), HPOOL_SIZE * 128, HPOOL_SIZE * 150);
 

@@ -22,11 +22,15 @@
 // General
 #define NTFP_PORT  5662 /* NTFP UDP port */
 
-
 // Users & auth
 #define NTFE_MAX_USERNAME  32
 #define NTFE_PKEY_SZ  32 /* Public key size, in bytes. */
 #define NTFE_PSHASH_SZ  32 /* Password hash size */
+
+// Internal encoding of ethertypes
+#define ETHER_LE16_TO_FS(ethertype) u8((htons(ethertype) >> 7) | 0x80)
+#define ETHER_BE16_TO_FS(ethertype) u8((u16(ethertype) >> 7) | 0x80)
+
 
 
 //
@@ -50,17 +54,16 @@ struct ntfe_host
 
 struct ntfe_rule
 {
-	u16 ether;
-	u16 dport;
-	u8 proto;
-	u8 unused;
+	le16 ether;
+	le16 dport;
 	u16 byte_scale;
 	u16 packet_scale;
 	u16 syn_scale;
+	u8 proto;
 	u8 byte_tb;
 	u8 packet_tb;
 	u8 syn_tb;
-	byte reserved[16];
+	byte reserved[12];
 };
 
 
@@ -92,6 +95,7 @@ struct ntfe_config
  // ntfe_host static_hosts[static_count];
 	byte ect[];
 };
+
 
 
 /*
@@ -136,6 +140,29 @@ struct ntfp_msg
 
 
 
+// Needs to be exposed for rule hashfn.
+union ntfe_flowsig
+{
+	u32 data;
+
+	// N.B: The layout of these fields is significant.
+	struct
+	{
+		u8 ether; /* L3 protocol */
+		u8 proto; /* L4 protocol */
+		be16 dport; /* Destination port */
+	};
+};
+
+
+/*
+ * ntfe_rule_hashfn
+ *    Hash function for rules to generate perfect lookups.
+ * 
+ */
+u16 ntfe_rule_hashfn(u32 seed, le16 ethertype, le16 port, u8 proto);
+
+
 //
 // N.B: The engine is only reentrant for the data-path; all other routines
 //      must be globally serialized before entering and are further required
@@ -148,7 +175,7 @@ struct ntfp_msg
  *    Global engine initialization.
  *
  */
-bool ntfe_init(ntfe_config* cfg, u32 cfg_len);
+bool ntfe_init();
 
 
 /*

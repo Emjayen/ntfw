@@ -79,13 +79,13 @@
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <OutputName>ndislwf</OutputName>
     <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
-    <IncludePath>.\ntfweng;$(IncludePath)</IncludePath>
+    <IncludePath>$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <OutputName>ndislwf</OutputName>
     <Inf2CatUseLocalTime>true</Inf2CatUseLocalTime>
-    <IncludePath>.\ntfweng;$(IncludePath)</IncludePath>
+    <IncludePath>$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
@@ -214,7 +214,7 @@
     <ClInclude Include="..\ntfe\ntfe.h" />
     <ClInclude Include="..\ntfe\ntfeusr.h" />
     <ClInclude Include="config.h" />
-    <ClInclude Include="driver.h" />
+    <ClInclude Include="shared.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\ntfe\ed25519\add_scalar.c" />
@@ -226,6 +226,7 @@
     <ClCompile Include="..\ntfe\helper.cpp" />
     <ClCompile Include="..\ntfe\host.cpp" />
     <ClCompile Include="..\ntfe\ntfe.cpp" />
+    <ClCompile Include="..\ntfe\ntfeusr.cpp" />
     <ClCompile Include="driver.cpp" />
     <ClCompile Include="eal.cpp" />
   </ItemGroup>

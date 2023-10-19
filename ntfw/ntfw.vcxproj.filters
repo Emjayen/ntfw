@@ -11,12 +11,21 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ntfw.cpp" />
-    <ClCompile Include="rules.cpp" />
+    <ClCompile Include="dlgrules.cpp" />
     <ClCompile Include="helper.cpp" />
-    <ClCompile Include="basic.cpp" />
+    <ClCompile Include="dlgbasic.cpp" />
     <ClCompile Include="dlgusers.cpp" />
+    <ClCompile Include="..\ntfe\ntfeusr.cpp">
+      <Filter>ntfe</Filter>
+    </ClCompile>
+    <ClCompile Include="phash.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="manifest.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="ntfe">
+      <UniqueIdentifier>{5ae3c573-e002-45d0-b250-50d16281ae63}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>

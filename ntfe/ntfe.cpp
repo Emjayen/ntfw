@@ -35,19 +35,42 @@ u64 time_msec()
 }
 
 
-u16 rule_hashfn(flowsig* fs, u32 seed)
+u16 hash_flowsig(flowsig fs)
 {
-	fs = fs;
-	seed = seed;
-	return 0;
+	return rule_hashfn(fs, gs.rule_seed) & ((1<<gs.rule_hashsz)-1);
 }
 
 
-rule* rule_lookup(flowsig* fs)
+rule* rule_lookup(flowsig fs)
 {
-	rule& rl = gs.rules[rule_hashfn(fs, gs.rule_seed) & (1<<gs.rule_hashsz)];
+	rule& rl = gs.rules[hash_flowsig(fs)];
 
-	return rl.fsig.data == fs->data ? &rl : NULL;
+	return rl.fsig.data == fs.data ? &rl : NULL;
+}
+
+
+bool rule_insert(ntfe_rule* rl, u32 seed, u8 hashsz, bool test)
+{
+	rule& rdst = gs.rules[ntfe_rule_hashfn(seed, rl->ether, rl->dport, rl->proto) & ((u16(1) << hashsz) - 1)];
+
+	if(rdst.fsig.data != 0)
+		return false;
+
+	if(test)
+		return true;
+
+	rdst.fsig.ether = ETHER_LE16_TO_FS(rl->ether);
+	rdst.fsig.proto = rl->proto;
+	rdst.fsig.dport = htons(rl->dport);
+	
+	rdst.in_byte_scale = rl->byte_scale;
+	rdst.in_packet_scale = rl->packet_scale;
+	rdst.in_syn_scale = rl->syn_scale;
+	rdst.in_byte_tb = rl->byte_tb;
+	rdst.in_packet_tb = rl->packet_tb;
+	rdst.in_syn_tb = rl->syn_tb;
+
+	return true;
 }
 
 
@@ -105,43 +128,46 @@ static void ntfp_rx_process(net_frame* frame, u16 len)
 	// Verify magic; elides the need for expensive processing ahead. This
 	// access is legal as we're guarenteed atleast 64 bytes of frame
 	// data. 
-	//if(msg->hdr.magic != gs.auth.pkey.magic)
-	//	return;
+	if(msg->hdr.magic != gs.pkey.magic)
+		return;
 
-	//// Pull link header & validate network.
-	//if((len -= sizeof(eth_hdr)) < sizeof(ip_hdr) || len < ntohs(frame->ip.len))
-	//	return;
+	// Start bringing in the key.
+	prefetcht1(&gs.pkey);
 
-	//// May truncate due to link padding.
-	//len = ntohs(frame->ip.len);
+	// Pull link header & validate network.
+	if((len -= sizeof(eth_hdr)) < sizeof(ip_hdr) || len < ntohs(frame->ip.len))
+		return;
 
-	//// Pull network header & validate transport.
-	//if((len -= sizeof(ip_hdr)) < sizeof(udp_hdr) || len < ntohs(frame->udp.len))
-	//	return;
+	// May truncate due to link padding.
+	len = ntohs(frame->ip.len);
 
-	//// Pull transport header & validate application.
-	//if((len -= sizeof(udp_hdr)) < sizeof(ntfp_hdr) || len < msg->len)
-	//	return;
-	//
-	//// Verify it's within the left and right edges of the acceptability window.
-	//const auto t = QuerySystemTime();
+	// Pull network header & validate transport.
+	if((len -= sizeof(ip_hdr)) < sizeof(udp_hdr) || len < ntohs(frame->udp.len))
+		return;
 
-	//if(msg->timestamp < t - (gs.auth.twnd/2) || msg->timestamp > t + (gs.auth.twnd/2))
-	//	return;
+	// Pull transport header & validate application.
+	if((len -= sizeof(udp_hdr)) < sizeof(ntfp_hdr) || len < msg->len)
+		return;
+	
+	// Verify it's within the left and right edges of the acceptability window.
+	const auto t = QuerySystemTime();
 
-	//// Verify the signature.
-	//if(!ed25519_verify(msg->hdr.signature, msg->payload, msg->len, gs.auth.pkey.key))
-	//	return;
+	if(msg->timestamp < t - (AUTH_TWND/2) || msg->timestamp > t + (AUTH_TWND/2))
+		return;
 
-	//// This would be very wrong.
-	//if(msg->auth.addr == 0)
-	//	return;
+	// Verify the signature of the payload matches with the configured public key.
+	if(!ed25519_verify(msg->hdr.signature, msg->payload, msg->len, gs.pkey.key))
+		return;
 
-	//// Passed all checks; insert as authorized host.
-	//if(host_insert_authorized(host_fetch_bucket(msg->auth.addr), msg->auth.addr, HOST_PRI_DYNAUTH) < 0)
-	//{
-	//	// TODO: Should log this.
-	//}
+	// This would be very wrong.
+	if(msg->auth.addr == 0)
+		return;
+
+	// Passed all checks; register as an authorized host.
+	if(host_insert_authorized(host_fetch_bucket(msg->auth.addr), msg->auth.addr, HOST_PRI_DYNAUTH) < 0)
+	{
+		// TODO: Should log this.
+	}
 }
 
 
@@ -158,7 +184,7 @@ bool ntfe_rx(void* data, u16 len)
 	
 
 	// Extract the fields that constitute the flow signature.
-	sig.ether = (u8) (frame->eth.proto >> 7);
+	sig.ether = ETHER_BE16_TO_FS(frame->eth.proto);
 	sig.proto = frame->ip.proto;
 	sig.dport = frame->tcp.dport;
 
@@ -169,7 +195,7 @@ bool ntfe_rx(void* data, u16 len)
 	{
 		sig.data &= 0xFF;
 
-		if(!rule_lookup(&sig))
+		if(!rule_lookup(sig))
 			goto drop;
 
 		else
@@ -201,15 +227,15 @@ bool ntfe_rx(void* data, u16 len)
 	}
 
 	// This should never be possible, however it may occur due to local software, and
-	// such would cause us to explode so we must check.
+	// such would cause us to explode so we are forced to check.
 	if((saddr = frame->ip.saddr) == 0)
 	{
 		cpu->sc.rx_malformed++;
 		goto drop;
 	}
 
-	// This is the earliest point in processing we can know the source address; start 
-	// bringing in the containing bucket. Unfortunately we're still unlikely to hide
+	// This is the earliest point in processing we can safely know the source address; 
+	// start bringing in the containing bucket. Unfortunately still unlikely to hide 
 	// much of the latency.
 	htb = host_fetch_bucket(saddr);
 	prefetch(htb);
@@ -236,16 +262,16 @@ bool ntfe_rx(void* data, u16 len)
 		mask |= 0xFFFF0000;
 	}
 
+	// If the host is authorized then everything is always accepted.
+	if((hidx = host_lookup(htb, saddr)) >= 0 && htb->ctrl[hidx].pri != HOST_PRI_NONE)
+		goto accept;
+
 	// NTFP hook.
 	if(sig.data == ((u32(IP_P_UDP)<<8) | u32((htons(NTFP_PORT))<<16)))
 	{
 		ntfp_rx_process(frame, len);
 		goto drop;
 	}
-
-	// If the host is authorized then everything is always accepted.
-	if((hidx = host_lookup(htb, saddr)) >= 0 && htb->ctrl[hidx].pri != HOST_PRI_NONE)
-		goto accept;
 
 	// If it exists, start bringing in the host-state in preperation for modifying the
 	// the token buckets.
@@ -257,7 +283,7 @@ bool ntfe_rx(void* data, u16 len)
 	// host so in which case: drop.
 	sig.data &= mask;
 
-	if(!(rl = rule_lookup(&sig)))
+	if(!(rl = rule_lookup(sig)))
 	{
 		cpu->sc.rx_drop_priv++;
 		goto drop;
@@ -338,7 +364,7 @@ void ntfe_tx(void* data, u16 len)
 	// Only interested in private traffic.
 	sig.data &= mask;
 
-	if(rule_lookup(&sig))
+	if(rule_lookup(sig))
 		return;
 
 	// Okay it's private traffic; mark the destination as now being an authorized
@@ -419,28 +445,18 @@ bool ntfe_validate_configuration(ntfe_config* cfg, u32 cfg_len)
 	}
 
 	// Check rules
-	if(cfg->rule_count > MAX_RULES || (1<<cfg->rule_hashsz) > MAX_RULES)
+	if(cfg->rule_count > MAX_RULES || (1<<cfg->rule_hashsz) > MAX_RULES || cfg->rule_hashsz == 0)
 	{
 		LERR("[cfg] Bad rules section; rule_count:%u rule_hashsz:%u (max:%u)", cfg->rule_count, cfg->rule_hashsz, MAX_RULES);
 		return false;
 	}
 
 	// Verify there's no rule table collisions.
-	for(uint i = 0; i < cfg->rule_count; i++)
+	for(uint i = 0; i < cfg->rule_count; i++, rl++)
 	{
-		ntfe_rule& src = *rl++;
-		flowsig fs;
-		u16 h;
-
-		fs.ether = (u8) (htons(src.ether) >> 7);
-		fs.proto = src.proto;
-		fs.dport = htons(src.dport);
-
-		rule& dst = gs.rules[(h = rule_hashfn(&fs, cfg->rule_seed))];
-
-		if(dst.fsig.data != 0)
+		if(!rule_insert(rl, cfg->rule_seed, cfg->rule_hashsz, true))
 		{
-			LERR("[cfg] Rule hashtable collision when inserting [0x%X, 0x%X, %u] with seed 0x%X", src.ether, src.proto, src.dport, cfg->rule_seed);
+			LERR("[cfg] Rule hashtable collision when inserting [0x%X, 0x%X, %u] with seed 0x%X", rl->ether, rl->proto, rl->dport, cfg->rule_seed);
 			return false;
 		}
 	}
@@ -478,7 +494,6 @@ bool ntfe_configure(ntfe_config* cfg, u32 cfg_len)
 	memzero(gs.rules, sizeof(gs.rules));
 	memzero(gs.tbdesc, sizeof(gs.tbdesc));
 	memzero(&gs.pkey, sizeof(gs.pkey));
-	memzero(gs.cpuls, sizeof(gs.cpuls));
 
 	// Invalidate all hosts currently marked as statically authorized.
 	host_clear_statically_authorized();
@@ -487,25 +502,10 @@ bool ntfe_configure(ntfe_config* cfg, u32 cfg_len)
 	gs.rule_hashsz = cfg->rule_hashsz;
 	gs.rule_seed = cfg->rule_seed;
 
-	for(uint i = 0; i < cfg->rule_count; i++)
+	for(uint i = 0; i < cfg->rule_count; i++, rl++)
 	{
-		ntfe_rule& src = *rl++;
-		flowsig fs;
-		u16 h;
-
-		fs.ether = (u8) (htons(src.ether) >> 7);
-		fs.proto = src.proto;
-		fs.dport = htons(src.dport);
-
-		rule& dst = gs.rules[(h = rule_hashfn(&fs, cfg->rule_seed))];
-
-		dst.fsig.data = fs.data;
-		dst.in_byte_scale = src.byte_scale;
-		dst.in_packet_scale = src.packet_scale;
-		dst.in_syn_scale = src.syn_scale;
-		dst.in_byte_tb = src.byte_tb;
-		dst.in_packet_tb = src.packet_tb;
-		dst.in_syn_tb = src.syn_tb;
+		if(!rule_insert(rl, cfg->rule_seed, cfg->rule_hashsz, false))
+			return false;
 	}
 
 	// Load meters
@@ -535,7 +535,7 @@ bool ntfe_configure(ntfe_config* cfg, u32 cfg_len)
 }
 
 
-bool ntfe_init(ntfe_config* cfg, u32 cfg_len)
+bool ntfe_init()
 {
 	// Cache the frequency of the high-precision clock source. This is established at
 	// boot-time and is guarenteed to be stable.

@@ -6,20 +6,19 @@
 #include "ntfeusr.h"
 
 
+
 // Configuration
 #define HTBL_SIZE    0x40000
 #define HTBL_BKT_SZ  8 /* Number of host entries per bucket. */
 #define HPOOL_SIZE   (HTBL_SIZE * 8)
 #define HPOOL_GROW   64 /* Host pool growth rate, in elements (host_state). */
-#define AUTH_TWND    (4 * 60) /* Size of the time window for which ntfp authentication messages will be accepted, in seconds. */
+#define AUTH_TWND    (4 * 60 * 1'000'000'0ULL) /* Size of the time window for which ntfp authentication messages will be accepted, in NTFT. */
 
 // Limits
 #define MAX_METERS NTFE_MAX_METERS
 #define MAX_CPUS   NTFE_MAX_CPUS  
 #define MAX_RULES  NTFE_MAX_RULES 
 #define MAX_USERS  NTFE_MAX_USERS 
-
-
 
 
 // Token bucket state.
@@ -39,17 +38,7 @@ struct tbucket_desc
 };
 
 // Flow signature; describes the network frame pattern to match for a rule.
-union flowsig
-{
-	u32 data;
-
-	struct
-	{
-		u8 ether; /* L3 protocol */
-		u8 proto; /* L4 protocol */
-		be16 dport; /* Destination port */
-	};
-};
+typedef ntfe_flowsig flowsig;
 
 // As taken from the compiled user program.
 struct rule
@@ -66,7 +55,7 @@ struct rule
 
 // Host control block; partial host state that lives in their bucket.
 #define HOST_PRI_NONE     0 /* Unauthorized internet hosts. */
-#define HOST_PRI_OUTAUTH  1 /* Temporarily authorized by inference from outgoing private traffic. */
+#define HOST_PRI_OUTAUTH  1 /* Authorized by inference from outgoing private traffic. */
 #define HOST_PRI_DYNAUTH  2 /* Dynamically administratively authorized. */
 #define HOST_PRI_STATIC   3 /* Statically authorized from configuration. */
 
@@ -224,6 +213,8 @@ s8 host_insert_authorized(htbucket* htb, be32 saddr, u32 priority);
 host_state* get_host_state(htbucket* htb, s8 hidx);
 void host_clear_statically_authorized();
 
+// Hashing
+u16 rule_hashfn(ntfe_flowsig fs, u32 seed);
 
 
 // Verify some things
